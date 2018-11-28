@@ -1,9 +1,9 @@
 [run]
 parallel = true
 branch = true
-source = os_qdb_protocal
+source = os_dbnetget
 
 [paths]
 source =
-    src/os_qdb_protocal
-    .tox/*/lib/python*/site-packages/os_qdb_protocal
+    src/os_dbnetget
+    .tox/*/lib/python*/site-packages/os_dbnetget
