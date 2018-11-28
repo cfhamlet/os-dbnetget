@@ -1,0 +1,23 @@
+language: python
+sudo: false
+matrix:
+  include:
+  - python: 2.7
+    env: TOXENV=py27
+  - python: 3.6
+    env: TOXENV=py36
+  - env: TOXENV=coverage
+install:
+- pip install -U pip tox codecov
+script:
+- tox
+after_success:
+- codecov
+deploy:
+  provider: pypi
+  user: cfhamlet
+  password:
+    secure: X0DIG0CP3PtJLkZ5NfiW1K3X8fP/XlRSZrd6qHdkZCIUOsTAvwF29NodFynzT89+8Sxq9Depbzf4Gw92hF2oMXAUyVXCh3sSOZwvBDsKhYhJfCsiP8tWBKzjaJIb2tE1veq7joLPPAEvvN+/EMalvwIgOKfVrCdHD4dovominzmp0BPzYn1Ahf6zDLZbBnW55H5vDdblD9Ou8a/gqyfCOLKWBz25hazYB9y1qIAYmWBa7vuGLRCNA1mf/e8AgE5vOPeIU4nDXHfxQ8ke8uaERBYlVoG1aDSSm3kX07g+mdJ4a611+uBFR5dhgYSSM3jJF8whVjIVzFUM5rhBA2dPFTQnLLCWtHD4JNUVLrbXaka0uQzJDMQ7o9Mgq9uPB5sgq/1ljy+VIuvHJca591MVucEmhXzjR9TZ8+QaetnTw406qY+IIGNNEv1B3bRiOq73Xd5/lU2c+ghTZ/T5HSoV8Wcpe0gNNRIAZ/qansbobH80DXdVDeoBq9hcL7EcMq9Bp0sacmH42eCGXK1akH1OkS3+2PHGsNpwR+y55VLK4TEktfvvK0Pt3FDPK5+CprcnZNLWWIBynRa7I9ozZBf3qThyvxx+ygkgFOOu+JbsLo56l9L8VQucVUJzC5QezkD8DWCpafVW54Tci7Rau4ZFCF1mSgEx8byuyMvtrH/AuuA=
+  true:
+    tags: true
+    condition: ${TOXENV} == py27

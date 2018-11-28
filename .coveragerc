@@ -1,0 +1,9 @@
+[run]
+parallel = true
+branch = true
+source = os_qdb_protocal
+
+[paths]
+source =
+    src/os_qdb_protocal
+    .tox/*/lib/python*/site-packages/os_qdb_protocal
