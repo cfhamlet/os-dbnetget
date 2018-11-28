@@ -6,7 +6,7 @@
 [![PyPI](https://img.shields.io/pypi/v/os-dbnetget.svg)](https://pypi.python.org/pypi/os-dbnetget)
 
 
-qdb anync client.
+qdb sync/async client library.
  
 
 # Install
