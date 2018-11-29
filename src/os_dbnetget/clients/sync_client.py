@@ -3,32 +3,25 @@ import time
 import errno
 import logging
 from io import BytesIO
-from .exceptions import RetryError
+from ..exceptions import RetryLimitExceeded, ServerClosed
+from .client import Client
 
 
-RETRY_NETWORK_ERRNO = set([111, ])
+RETRY_NETWORK_ERRNO = set([
+    errno.ECONNREFUSED,
+    errno.ECONNRESET,
+    errno.ECONNABORTED,
+])
 
 socket.setdefaulttimeout(10)
 
 _logger = logging.getLogger(__file__)
 
 
-class Client(object):
-    def __init__(self, address, port, **kwargs):
-        self._address = address
-        self._port = port
-
-    def execute(self, qdb_proto):
-        raise NotImplementedError
-
-    def close(self):
-        pass
-
-
 class SyncClient(Client):
     def __init__(self, address, port, **kwargs):
         super(SyncClient, self).__init__(address, port, **kwargs)
-        self._timeout = kwargs.get('timeout', None)
+        self._timeout = kwargs.get('timeout', socket.getdefaulttimeout())
         self._retry_max = kwargs.get('retry_max', 3)
         self._retry_interval = kwargs.get('retry_interval', 5)
         self._retry_count = 0
@@ -44,16 +37,17 @@ class SyncClient(Client):
                     (self._address, self._port), timeout=self._timeout)
                 break
             except socket.error as e:
-                if not isinstance(e, socket.timeout) and not int(e.errno) in RETRY_NETWORK_ERRNO:
-                    raise e
+                if not isinstance(e, socket.timeout):
+                    if e.args[0] not in RETRY_NETWORK_ERRNO:
+                        raise e
 
-                _logger.debug('Network error %s, retry in %ds, retry count %d' %
+                _logger.warn('Network error %s, retry in %ds, retry count %d' %
                               (str(e), self._retry_interval, self._retry_count))
                 self._retry_count += 1
                 time.sleep(self._retry_interval)
 
         if self._retry_count >= self._retry_max:
-            raise RetryError('Exceeded retry limit %d/%d' %
+            raise RetryLimitExceeded('Exceeded retry limit %d/%d' %
                              (self._retry_count, self._retry_max))
         self._retry_count = 0
 
@@ -62,10 +56,9 @@ class SyncClient(Client):
             self._reconnect()
         while True:
             try:
-                self._execute(qdb_proto)
-                break
+                return self._execute(qdb_proto)
             except (socket.timeout, socket.error) as e:
-                _logger.debug('Network error %s' % str(e))
+                _logger.warn('Network error %s' % str(e))
                 self._reconnect()
 
     def _execute(self, qdb_proto):
@@ -73,14 +66,18 @@ class SyncClient(Client):
             self._socket.sendall(data)
         downstream = qdb_proto.downstream()
         read_size = next(downstream)
-        while read_size >= 0:
+        while read_size > 0:
             data = self._recvall(self._socket, read_size)
             read_size = downstream.send(data)
+        return qdb_proto
 
     def _recvall(self, s, size):
         buffer = BytesIO()
         left = size
         while left > 0:
+            data = s.recv(left)
+            if not data:
+                raise ServerClosed
             buffer.write(s.recv(left))
             left = size - buffer.tell()
         buffer.seek(0)

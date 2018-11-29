@@ -1,2 +1,6 @@
-class RetryError(Exception):
+class RetryLimitExceeded(Exception):
+    pass
+
+
+class ServerClosed(Exception):
     pass
