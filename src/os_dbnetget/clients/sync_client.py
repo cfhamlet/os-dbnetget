@@ -15,7 +15,7 @@ RETRY_NETWORK_ERRNO = set([
 
 socket.setdefaulttimeout(10)
 
-_logger = logging.getLogger(__file__)
+_logger = logging.getLogger(__name__)
 
 
 class SyncClient(Client):
