@@ -41,10 +41,12 @@ class SyncClient(Client):
                     if e.args[0] not in RETRY_NETWORK_ERRNO:
                         raise e
 
-                _logger.warn('Network error %s, retry in %ds, retry count %d' %
+                _logger.warn('Network error: %s, retry in %ds, retry count %d' %
                               (str(e), self._retry_interval, self._retry_count))
+
                 self._retry_count += 1
-                time.sleep(self._retry_interval)
+                if self._retry_count < self._retry_max:
+                    time.sleep(self._retry_interval)
 
         if self._retry_count >= self._retry_max:
             raise RetryLimitExceeded('Exceeded retry limit %d/%d' %
@@ -58,7 +60,7 @@ class SyncClient(Client):
             try:
                 return self._execute(qdb_proto)
             except (socket.timeout, socket.error) as e:
-                _logger.warn('Network error %s' % str(e))
+                _logger.warn('Network error: %s' % str(e))
                 self._reconnect()
 
     def _execute(self, qdb_proto):
