@@ -1,17 +1,11 @@
-import socket
-import time
 import errno
 import logging
+import socket
+import time
 from io import BytesIO
+
 from ..exceptions import RetryLimitExceeded, ServerClosed
-from .client import Client
-
-
-RETRY_NETWORK_ERRNO = set([
-    errno.ECONNREFUSED,
-    errno.ECONNRESET,
-    errno.ECONNABORTED,
-])
+from .client import RETRY_NETWORK_ERRNO, Client
 
 socket.setdefaulttimeout(10)
 
@@ -23,6 +17,7 @@ class SyncClient(Client):
         super(SyncClient, self).__init__(address, port, **kwargs)
         self._timeout = kwargs.get('timeout', socket.getdefaulttimeout())
         self._retry_max = kwargs.get('retry_max', 3)
+        assert self._retry_max >= 1
         self._retry_interval = kwargs.get('retry_interval', 5)
         self._retry_count = 0
         self._socket = None
@@ -41,16 +36,16 @@ class SyncClient(Client):
                     if e.args[0] not in RETRY_NETWORK_ERRNO:
                         raise e
 
-                _logger.warn('Network error: %s, retry in %ds, retry count %d' %
-                              (str(e), self._retry_interval, self._retry_count))
+                _logger.warn('Connect error: %s, retry in %ds, retry count %d' %
+                             (str(e), self._retry_interval, self._retry_count))
 
                 self._retry_count += 1
                 if self._retry_count < self._retry_max:
                     time.sleep(self._retry_interval)
 
         if self._retry_count >= self._retry_max:
-            raise RetryLimitExceeded('Exceeded retry limit %d/%d' %
-                             (self._retry_count, self._retry_max))
+            raise RetryLimitExceeded('Exceed retry limit %d/%d' %
+                                     (self._retry_count, self._retry_max))
         self._retry_count = 0
 
     def execute(self, qdb_proto):
