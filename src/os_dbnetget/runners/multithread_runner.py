@@ -1,5 +1,5 @@
+import sys
 import logging
-import Queue
 import signal
 import threading
 import uuid
@@ -9,22 +9,29 @@ from itertools import chain
 from ..clients.sync_client import SyncClient
 from .runner import Runner
 
+_PY3 = sys.version_info[0] == 3
+
+if _PY3:
+    import queue as Queue
+else:
+    import Queue
+
 
 class MultithreadManager(object):
     def __init__(self, workers):
         self._workers = workers
 
     def start(self):
-        map(lambda w: w.start(), self._workers)
+        list(map(lambda w: w.start(), self._workers))
 
     def setDaemon(self, daemonic):
-        map(lambda w: w.setDaemon(daemonic), self._workers)
+        list(map(lambda w: w.setDaemon(daemonic), self._workers))
 
     def join(self):
-        map(lambda w: w.join(), self._workers)
+        list(map(lambda w: w.join(), self._workers))
 
     def stop(self):
-        map(lambda w: w.stop(), self._workers)
+        list(map(lambda w: w.stop(), self._workers))
 
     def stopped(self):
         return not any([w.isAlive() for w in self._workers])
@@ -40,18 +47,20 @@ class OThread(threading.Thread):
 
         super(OThread, self).__init__(**kwargs)
         self._runner = runner
-        self._stop = False
+        self._stopping = False
         self._logger = logging.getLogger(
             self.__class__.__name__ + '.%s' % self._tid)
 
     def run(self):
         try:
+            self._logger.debug('Start')
             self._run()
+            self._logger.debug('Stop')
         except Exception as e:
             self._logger.error('Unexpected exception, %s' % str(e))
 
     def stop(self):
-        self._stop = True
+        self._stopping = True
 
 
 class Reader(OThread):
@@ -67,20 +76,25 @@ class Reader(OThread):
     def _run(self):
         for data in chain.from_iterable(self.config.files):
             data = data.strip()
-            while not self._stop or data:
+            while True:
                 if not data:
-                    break
+                    if self._stopping:
+                        return
+                    else:
+                        break
                 try:
                     self.queue.put(data, block=False, timeout=0.3)
                     self._logger.info(data)
                     break
                 except Queue.Full:
                     continue
-            if self._stop:
+            if self._stopping:
                 break
 
     def run(self):
         super(Reader, self).run()
+        [self.queue.put(None)
+         for _ in range(0, self.config.max_conn_concurrency)]
         self._runner.get_handler('reciever').stop()
 
 
@@ -96,9 +110,6 @@ class Reciever(OThread):
 
     def _process(self, data):
         while True:
-            if self._stop:
-                if self._runner.get_handler('processor').stopped():
-                    break
             try:
                 self._logger.info(data)
                 self.output_queue.put(data, block=True, timeout=0.1)
@@ -108,20 +119,21 @@ class Reciever(OThread):
 
     def _run(self):
         while True:
-            if self._stop:
-                if self.input_queue.qsize() <= 0 \
-                        or self._runner.get_handler('processor').stopped():
+            if self._stopping:
+                if self.input_queue.qsize() <= 0:
                     break
             try:
                 data = self.input_queue.get(block=True, timeout=1)
+                if data is None:
+                    break
                 self._process(data)
             except Queue.Empty:
                 pass
 
     def run(self):
         super(Reciever, self).run()
-        map(lambda x: x.stop(), [self._runner.get_handler(n)
-                                 for n in ('reciever', 'processor')])
+        list(map(lambda x: x.stop(), [self._runner.get_handler(n)
+                                      for n in ('reciever', 'processor')]))
 
 
 class Processor(OThread):
@@ -132,7 +144,7 @@ class Processor(OThread):
 
     def _run(self):
         while True:
-            if self._stop:
+            if self._stopping:
                 if self.queue.qsize() <= 0 \
                         and self._runner.get_handler('reciever').stopped():
                     break
@@ -144,16 +156,17 @@ class Processor(OThread):
 
     def run(self):
         super(Processor, self).run()
-        map(lambda x: x.stop(), [self._runner.get_handler(n)
-                                 for n in ('reader', 'reciever')])
+        list(map(lambda x: x.stop(), [self._runner.get_handler(n)
+                                      for n in ('reader', 'reciever')]))
 
 
 class MultithreadRunner(Runner):
 
     def __init__(self, config):
         super(MultithreadRunner, self).__init__(config)
-        self._input_queue = Queue.Queue()
-        self._output_queue = Queue.Queue()
+        queue_size = self._config.max_conn_concurrency * 2
+        self._input_queue = Queue.Queue(queue_size)
+        self._output_queue = Queue.Queue(queue_size)
         self._handlers = {}
 
     @property
@@ -179,14 +192,14 @@ class MultithreadRunner(Runner):
 
     def run(self):
         m = self._handlers.values()
-        map(lambda x: x.start(), m)
+        list(map(lambda x: x.start(), m))
 
         while not any([x.stopped() for x in m]):
             time.sleep(1)
 
-        map(lambda x: x.join(), [self.get_handler(x)
-                                 for x in ('reciever', 'processor')])
+        list(map(lambda x: x.join(), [self.get_handler(x)
+                                      for x in ('reciever', 'processor')]))
 
     def stop(self, what=()):
-        map(lambda x: x.stop(), [self.get_handler(n)
-                                 for n in ('reader', 'reciever')])
+        list(map(lambda x: x.stop(), [self.get_handler(n)
+                                      for n in ('reader', 'reciever')]))
