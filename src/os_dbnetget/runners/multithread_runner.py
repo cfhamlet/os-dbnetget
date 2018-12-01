@@ -18,23 +18,23 @@ else:
 
 
 class MultithreadManager(object):
-    def __init__(self, workers):
-        self._workers = workers
+    def __init__(self, threads):
+        self._threads = threads
 
     def start(self):
-        list(map(lambda w: w.start(), self._workers))
+        list(map(lambda t: t.start(), self._threads))
 
     def setDaemon(self, daemonic):
-        list(map(lambda w: w.setDaemon(daemonic), self._workers))
+        list(map(lambda t: t.setDaemon(daemonic), self._threads))
 
     def join(self):
-        list(map(lambda w: w.join(), self._workers))
+        list(map(lambda t: t.join(), self._threads))
 
     def stop(self):
-        list(map(lambda w: w.stop(), self._workers))
+        list(map(lambda t: t.stop(), self._threads))
 
     def stopped(self):
-        return not any([w.isAlive() for w in self._workers])
+        return not any([t.isAlive() for t in self._threads])
 
 
 class OThread(threading.Thread):
@@ -83,7 +83,7 @@ class Reader(OThread):
                     else:
                         break
                 try:
-                    self.queue.put(data, block=False, timeout=0.3)
+                    self.queue.put(data, block=False, timeout=1)
                     self._logger.info(data)
                     break
                 except Queue.Full:
@@ -123,7 +123,7 @@ class Reciever(OThread):
                 if self.input_queue.qsize() <= 0:
                     break
             try:
-                data = self.input_queue.get(block=True, timeout=1)
+                data = self.input_queue.get(block=True, timeout=0.1)
                 if data is None:
                     break
                 self._process(data)
@@ -164,7 +164,7 @@ class MultithreadRunner(Runner):
 
     def __init__(self, config):
         super(MultithreadRunner, self).__init__(config)
-        queue_size = self._config.max_conn_concurrency * 2
+        queue_size = self.config.max_conn_concurrency * 2
         self._input_queue = Queue.Queue(queue_size)
         self._output_queue = Queue.Queue(queue_size)
         self._handlers = {}
@@ -185,12 +185,12 @@ class MultithreadRunner(Runner):
         self._handlers['reader'].setDaemon(True)
 
         self._handlers['reciever'] = MultithreadManager(
-            [Reciever(self, tid=i) for i in range(0, self._config.max_conn_concurrency)])
+            [Reciever(self, tid=i) for i in range(0, self.config.max_conn_concurrency)])
 
         self._handlers['processor'] = MultithreadManager(
-            [Processor(self, tid=i) for i in range(0, self._config.max_proc_concurrency)])
+            [Processor(self, tid=i) for i in range(0, self.config.max_proc_concurrency)])
 
-    def run(self):
+    def start(self):
         m = self._handlers.values()
         list(map(lambda x: x.start(), m))
 

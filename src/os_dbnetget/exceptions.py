@@ -4,3 +4,11 @@ class RetryLimitExceeded(Exception):
 
 class ServerClosed(Exception):
     pass
+
+
+class ResourceLimit(Exception):
+    pass
+
+
+class Unavailable(Exception):
+    pass

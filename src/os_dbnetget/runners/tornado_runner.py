@@ -5,3 +5,9 @@ from ..clients.tornado_client import TornadoClient
 class TornadoRunner(Runner):
     def setup(self):
         pass
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
