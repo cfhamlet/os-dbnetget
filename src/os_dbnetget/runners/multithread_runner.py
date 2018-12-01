@@ -5,8 +5,9 @@ import threading
 import uuid
 import time
 from itertools import chain
+from os_qdb_protocal import create_protocal
 
-from ..clients.sync_client import SyncClient
+from ..clients.sync_client import SyncClientPool
 from .runner import Runner
 
 _PY3 = sys.version_info[0] == 3
@@ -39,17 +40,25 @@ class MultithreadManager(object):
 
 class OThread(threading.Thread):
 
-    def __init__(self, runner, **kwargs):
+    def __init__(self, config, **kwargs):
         if 'tid' in kwargs:
             self._tid = str(kwargs.pop('tid'))
         else:
             self._tid = str(uuid.uuid1())[:8]
 
         super(OThread, self).__init__(**kwargs)
-        self._runner = runner
+        self._config = config
         self._stopping = False
         self._logger = logging.getLogger(
             self.__class__.__name__ + '.%s' % self._tid)
+
+    @property
+    def runtime_context(self):
+        return self.config.runtime_context
+
+    @property
+    def config(self):
+        return self._config
 
     def run(self):
         try:
@@ -67,14 +76,10 @@ class Reader(OThread):
 
     @property
     def queue(self):
-        return self._runner.input_queue
-
-    @property
-    def config(self):
-        return self._runner.config
+        return self.runtime_context.input_queue
 
     def _run(self):
-        for data in chain.from_iterable(self.config.files):
+        for data in chain.from_iterable(self.runtime_context.files):
             data = data.strip()
             while True:
                 if not data:
@@ -84,7 +89,6 @@ class Reader(OThread):
                         break
                 try:
                     self.queue.put(data, block=False, timeout=1)
-                    self._logger.info(data)
                     break
                 except Queue.Full:
                     continue
@@ -94,25 +98,28 @@ class Reader(OThread):
     def run(self):
         super(Reader, self).run()
         [self.queue.put(None)
-         for _ in range(0, self.config.max_conn_concurrency)]
-        self._runner.get_handler('reciever').stop()
+         for _ in range(0, self.config.max_operator)]
+        self.runtime_context.operator.stop()
 
 
-class Reciever(OThread):
+class Operator(OThread):
 
     @property
     def input_queue(self):
-        return self._runner.input_queue
+        return self.runtime_context.input_queue
 
     @property
     def output_queue(self):
-        return self._runner.output_queue
+        return self.runtime_context.output_queue
 
     def _process(self, data):
+        pass
+
+    def _process_and_send(self, data):
+        p_data = self._process(data)
         while True:
             try:
-                self._logger.info(data)
-                self.output_queue.put(data, block=True, timeout=0.1)
+                self.output_queue.put(p_data, block=True, timeout=0.1)
                 break
             except Queue.Full:
                 pass
@@ -126,80 +133,81 @@ class Reciever(OThread):
                 data = self.input_queue.get(block=True, timeout=0.1)
                 if data is None:
                     break
-                self._process(data)
+                self._process_and_send(data)
             except Queue.Empty:
                 pass
 
     def run(self):
-        super(Reciever, self).run()
-        list(map(lambda x: x.stop(), [self._runner.get_handler(n)
-                                      for n in ('reciever', 'processor')]))
+        super(Operator, self).run()
+        list(map(lambda x: x.stop(), [
+             self.runtime_context.operator, self.runtime_context.processor]))
 
 
 class Processor(OThread):
 
     @property
     def queue(self):
-        return self._runner.output_queue
+        return self.runtime_context.output_queue
+
+    def _process(self, data):
+        pass
 
     def _run(self):
         while True:
             if self._stopping:
-                if self.queue.qsize() <= 0 \
-                        and self._runner.get_handler('reciever').stopped():
+                if self.queue.qsize() <= 0 and self.runtime_context.operator.stopped():
                     break
             try:
                 data = self.queue.get(block=True, timeout=0.1)
-                self._logger.info(data)
+                self._process(data)
             except Queue.Empty:
                 pass
 
     def run(self):
         super(Processor, self).run()
-        list(map(lambda x: x.stop(), [self._runner.get_handler(n)
-                                      for n in ('reader', 'reciever')]))
+        list(map(lambda x: x.stop(), [
+             self.runtime_context.reader, self.runtime_context.operator]))
 
 
 class MultithreadRunner(Runner):
 
     def __init__(self, config):
         super(MultithreadRunner, self).__init__(config)
-        queue_size = self.config.max_conn_concurrency * 2
-        self._input_queue = Queue.Queue(queue_size)
-        self._output_queue = Queue.Queue(queue_size)
-        self._handlers = {}
-
-    @property
-    def input_queue(self):
-        return self._input_queue
-
-    @property
-    def output_queue(self):
-        return self._output_queue
-
-    def get_handler(self, name):
-        return self._handlers[name]
+        queue_size = self.config.max_operator * 2
+        config.runtime_context.input_queue = Queue.Queue(queue_size)
+        config.runtime_context.output_queue = Queue.Queue(queue_size)
 
     def setup(self):
-        self._handlers['reader'] = MultithreadManager([Reader(self, tid=0), ])
-        self._handlers['reader'].setDaemon(True)
+        runtime_context = self.config.runtime_context
+        runtime_context.reader = MultithreadManager(
+            [self.config.reader_cls(self.config, tid=i)
+             for i in range(0, self.config.max_reader)]
+        )
+        runtime_context.reader.setDaemon(True)
 
-        self._handlers['reciever'] = MultithreadManager(
-            [Reciever(self, tid=i) for i in range(0, self.config.max_conn_concurrency)])
+        runtime_context.operator = MultithreadManager(
+            [self.config.operator_cls(self.config, tid=i)
+             for i in range(0, self.config.max_operator)]
+        )
 
-        self._handlers['processor'] = MultithreadManager(
-            [Processor(self, tid=i) for i in range(0, self.config.max_proc_concurrency)])
+        runtime_context.processor = MultithreadManager(
+            [self.config.processor_cls(self.config, tid=i)
+             for i in range(0, self.config.max_processor)]
+        )
 
     def start(self):
-        m = self._handlers.values()
+        runtime_context = self.config.runtime_context
+        m = [runtime_context.reader, runtime_context.operator,
+             runtime_context.processor]
         list(map(lambda x: x.start(), m))
 
         while not any([x.stopped() for x in m]):
             time.sleep(1)
 
-        list(map(lambda x: x.join(), [self.get_handler(x)
-                                      for x in ('reciever', 'processor')]))
+        list(map(lambda x: x.join(), [
+             runtime_context.operator, runtime_context.processor]))
 
     def stop(self, what=()):
-        list(map(lambda x: x.stop(), [self.get_handler(n)
-                                      for n in ('reader', 'reciever')]))
+        runtime_context = self.config.runtime_context
+        list(map(lambda x: x.stop(), [
+             runtime_context.operator, runtime_context.processor]))

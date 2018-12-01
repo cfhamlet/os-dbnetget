@@ -60,7 +60,6 @@ class SyncClient(Client):
         self._retry_count = 0
 
     def execute(self, qdb_proto):
-        return qdb_proto
         if self._socket is None:
             self._reconnect()
         while True:
@@ -87,7 +86,7 @@ class SyncClient(Client):
             data = s.recv(left)
             if not data:
                 raise ServerClosed
-            buffer.write(s.recv(left))
+            buffer.write(data)
             left = size - buffer.tell()
         buffer.seek(0)
         return buffer.read()
@@ -122,9 +121,9 @@ class SyncClientPool(object):
     def _create_client(self):
         if self._closing:
             raise Unavailable('Closing')
+        if not self._create_lock.acquire(False):
+            return
         try:
-            if not self._create_lock.acquire(False):
-                return
 
             while len(self._candidates) > 0:
                 endpoint = random.sample(self._candidates.keys(), 1)[0]
@@ -178,9 +177,9 @@ class SyncClientPool(object):
             self._clients_count -= 1
 
     def close(self):
+        if not self._close_lock.acquire(False):
+            return
         try:
-            if not self._close_lock.acquire(False):
-                return
             self._closing = True
             while self._clients_count > 0:
                 client = self._clients.get()
