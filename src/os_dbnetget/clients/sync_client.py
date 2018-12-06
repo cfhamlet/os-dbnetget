@@ -108,8 +108,8 @@ class SyncClientPool(object):
         self._kwargs = kwargs
         self._clients = Queue.Queue()
         self._clients_count = 0
-        self._create_lock = threading.RLock()
-        self._close_lock = threading.RLock()
+        self._create_lock = threading.Lock()
+        self._close_lock = threading.Lock()
         self._closing = False
         self._create_client()
 

@@ -25,7 +25,12 @@ setup(
     author='Ozzy',
     author_email='cfhamlet@gmail.com',
     url='https://github.com/cfhamlet/os-dbnetget',
+    install_requires=open('requirements.txt').read().split('\n'),
     zip_safe=False,
+    extras_require={
+        'tornado': ['tornado'],
+        '3m': ['os-3m-engine'],
+    },
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
@@ -36,4 +41,5 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: Implementation :: CPython',
+        'Programming Language :: Python :: Implementation :: PyPy',
     ])
