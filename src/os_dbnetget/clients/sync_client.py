@@ -37,7 +37,7 @@ class SyncClient(Client):
     def _reconnect(self):
         while self._retry_count < self._retry_max:
             self.__ensure_not_closed()
-            self.__reset_socket()
+            self.__close_socket()
             try:
                 self._socket = socket.create_connection(
                     (self._address, self._port), timeout=self._timeout)
@@ -98,7 +98,7 @@ class SyncClient(Client):
         buffer.seek(0)
         return buffer.read()
 
-    def __reset_socket(self):
+    def __close_socket(self):
         if self._socket is not None:
             try:
                 self._socket.close()
@@ -196,21 +196,24 @@ class SyncClientPool(object):
                 client.close()
         finally:
             self._clients_count -= 1
+            
+    def closed(self):
+        return self._closed
 
     def close(self):
+        self._closing = True
         if not self._close_lock.acquire(False):
             return
         self._create_lock.acquire()
         try:
-            self._closing = True
             while self._clients_count > 0:
                 try:
                     client = self._clients.get(0.1)
                 except Queue.Empty:
                     pass
                 self._release_client(client)
-            self._closing = False
-        finally:
             self._closed = True
+        finally:
+            self._closing = False
             self._create_lock.release()
             self._close_lock.release()
