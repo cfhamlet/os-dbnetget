@@ -37,12 +37,7 @@ class SyncClient(Client):
     def _reconnect(self):
         while self._retry_count < self._retry_max:
             self.__ensure_not_closed()
-            if self._socket is not None:
-                try:
-                    self._socket.close()
-                except:
-                    pass
-                self._socket = None
+            self.__reset_socket()
             try:
                 self._socket = socket.create_connection(
                     (self._address, self._port), timeout=self._timeout)
@@ -59,6 +54,7 @@ class SyncClient(Client):
                 if self._retry_count < self._retry_max:
                     time.sleep(self._retry_interval)
 
+        self.__ensure_not_closed()
         if self._retry_count >= self._retry_max:
             raise RetryLimitExceeded('Exceed retry limit %d/%d' %
                                      (self._retry_count, self._retry_max))
@@ -69,7 +65,6 @@ class SyncClient(Client):
             raise Unavailable('Client already closed')
 
     def execute(self, qdb_proto):
-        self.__ensure_not_closed()
         if self._socket is None:
             self._reconnect()
         while True:
@@ -103,14 +98,16 @@ class SyncClient(Client):
         buffer.seek(0)
         return buffer.read()
 
-    def close(self):
-
+    def __reset_socket(self):
         if self._socket is not None:
             try:
                 self._socket.close()
             finally:
                 self._socket = None
-                self._retry_count = 0
+
+    def close(self):
+
+        self.__reset_socket()
         self._closed = True
 
 
