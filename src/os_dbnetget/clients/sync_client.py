@@ -32,11 +32,16 @@ class SyncClient(Client):
         self._retry_interval = kwargs.get('retry_interval', 5)
         self._retry_count = 0
         self._socket = None
+        self._closed = False
 
     def _reconnect(self):
         while self._retry_count < self._retry_max:
+            self.__ensure_not_closed()
             if self._socket is not None:
-                self._socket.close()
+                try:
+                    self._socket.close()
+                except:
+                    pass
                 self._socket = None
             try:
                 self._socket = socket.create_connection(
@@ -59,7 +64,12 @@ class SyncClient(Client):
                                      (self._retry_count, self._retry_max))
         self._retry_count = 0
 
+    def __ensure_not_closed(self):
+        if self._closed:
+            raise Unavailable('Client already closed')
+
     def execute(self, qdb_proto):
+        self.__ensure_not_closed()
         if self._socket is None:
             self._reconnect()
         while True:
@@ -70,6 +80,8 @@ class SyncClient(Client):
                 self._reconnect()
 
     def _execute(self, qdb_proto):
+        self.__ensure_not_closed()
+
         for data in qdb_proto.upstream():
             self._socket.sendall(data)
         downstream = qdb_proto.downstream()
@@ -92,25 +104,27 @@ class SyncClient(Client):
         return buffer.read()
 
     def close(self):
+
         if self._socket is not None:
             try:
                 self._socket.close()
             finally:
                 self._socket = None
                 self._retry_count = 0
+        self._closed = True
 
 
 class SyncClientPool(object):
     def __init__(self, endpoints, max_concurrency=1, **kwargs):
         self._endpoints = endpoints
         self._candidates = dict.fromkeys(self._endpoints, max_concurrency)
-        self._max_concurrency = max_concurrency
         self._kwargs = kwargs
         self._clients = Queue.Queue()
         self._clients_count = 0
         self._create_lock = threading.Lock()
         self._close_lock = threading.Lock()
         self._closing = False
+        self._closed = False
         self._create_client()
 
     def _split_endpoint(self, endpint):
@@ -119,8 +133,8 @@ class SyncClientPool(object):
         return address, port
 
     def _create_client(self):
-        if self._closing:
-            raise Unavailable('Closing')
+        self.__ensure_not_closing()
+        self.__ensure_not_closed()
         if not self._create_lock.acquire(False):
             return
         try:
@@ -148,12 +162,23 @@ class SyncClientPool(object):
     def _exhausted(self):
         return self._clients_count <= 0 and len(self._candidates) <= 0
 
+    def __ensure_not_closing(self):
+        if self._closing:
+            raise Unavailable('Closing')
+
+    def __ensure_not_closed(self):
+        if self._closed:
+            raise Unavailable('Closed')
+
+    def __ensure_not_exhuasted(self):
+        if self._exhausted():
+            raise ResourceLimit('No more available client')
+
     def execute(self, qdb_proto):
         while True:
-            if self._closing:
-                raise Unavailable('Closing')
-            if self._exhausted():
-                raise ResourceLimit('No more available client')
+            self.__ensure_not_closing()
+            self.__ensure_not_closed()
+            self.__ensure_not_exhuasted()
             try:
                 client = self._clients.get(block=True, timeout=1)
                 r = client.execute(qdb_proto)
@@ -170,19 +195,25 @@ class SyncClientPool(object):
 
     def _release_client(self, client):
         try:
-            client.close()
-        except Exception as e:
-            pass
+            if client:
+                client.close()
         finally:
             self._clients_count -= 1
 
     def close(self):
         if not self._close_lock.acquire(False):
             return
+        self._create_lock.acquire()
         try:
             self._closing = True
             while self._clients_count > 0:
-                client = self._clients.get()
+                try:
+                    client = self._clients.get(0.1)
+                except Queue.Empty:
+                    pass
                 self._release_client(client)
+            self._closing = False
         finally:
+            self._closed = True
+            self._create_lock.release()
             self._close_lock.release()
