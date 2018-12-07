@@ -127,8 +127,8 @@ class SyncClientPool(object):
     def _create_client(self):
         if not self._create_lock.acquire(False):
             return
-        self.__ensure_not_closing()
         self.__ensure_not_closed()
+        self.__ensure_not_closing()
         try:
 
             while len(self._candidates) > 0:
@@ -170,8 +170,8 @@ class SyncClientPool(object):
     def execute(self, qdb_proto):
 
         while True:
-            self.__ensure_not_closing()
             self.__ensure_not_closed()
+            self.__ensure_not_closing()
             self.__ensure_not_exhuasted()
             if not self._started:
                 try:
@@ -206,11 +206,14 @@ class SyncClientPool(object):
         return self._closed
 
     def close(self):
-        self._closing = True
-        if not self._close_lock.acquire(False):
+        self._close_lock.acquire()
+        if self._closed:
+            self._close_lock.release()
             return
-        self._create_lock.acquire()
+        self._closing = True
+
         try:
+            self._create_lock.acquire()
             while self._clients_count > 0:
                 try:
                     client = self._clients.get(0.1)
