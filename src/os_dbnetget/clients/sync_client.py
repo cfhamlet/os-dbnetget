@@ -9,6 +9,7 @@ from io import BytesIO
 
 from ..exceptions import (ResourceLimit, RetryLimitExceeded, ServerClosed,
                           Unavailable)
+from ..utils import split_endpoint
 from .client import RETRY_NETWORK_ERRNO, Client
 
 _PY3 = sys.version_info[0] == 3
@@ -121,18 +122,13 @@ class SyncClientPool(object):
         self._close_lock = threading.Lock()
         self._closing = False
         self._closed = False
-        self._create_client()
-
-    def _split_endpoint(self, endpint):
-        address, port = endpint.split(':')
-        port = int(port)
-        return address, port
+        self._started = False
 
     def _create_client(self):
-        self.__ensure_not_closing()
-        self.__ensure_not_closed()
         if not self._create_lock.acquire(False):
             return
+        self.__ensure_not_closing()
+        self.__ensure_not_closed()
         try:
 
             while len(self._candidates) > 0:
@@ -141,7 +137,7 @@ class SyncClientPool(object):
                     self._candidates.pop(endpoint)
                     continue
 
-                address, port = self._split_endpoint(endpoint)
+                address, port = split_endpoint(endpoint)
                 client = SyncClient(address, port, **self._kwargs)
                 self._candidates[endpoint] -= 1
                 if self._candidates[endpoint] <= 0:
@@ -172,10 +168,18 @@ class SyncClientPool(object):
             raise ResourceLimit('No more available client')
 
     def execute(self, qdb_proto):
+
         while True:
             self.__ensure_not_closing()
             self.__ensure_not_closed()
             self.__ensure_not_exhuasted()
+            if not self._started:
+                try:
+                    self._create_client()
+                except:
+                    continue
+                finally:
+                    self._started = True
             try:
                 client = self._clients.get(block=True, timeout=1)
                 r = client.execute(qdb_proto)
