@@ -127,9 +127,9 @@ class SyncClientPool(object):
     def _create_client(self):
         if not self._create_lock.acquire(False):
             return
-        self.__ensure_not_closed()
-        self.__ensure_not_closing()
         try:
+            self.__ensure_not_closed()
+            self.__ensure_not_closing()
 
             while len(self._candidates) > 0:
                 endpoint = random.sample(self._candidates.keys(), 1)[0]
