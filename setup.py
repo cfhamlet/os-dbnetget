@@ -27,9 +27,12 @@ setup(
     url='https://github.com/cfhamlet/os-dbnetget',
     install_requires=open('requirements.txt').read().split('\n'),
     zip_safe=False,
+    entry_points={
+        'console_scripts': ['os-dbnetget = os_dbnetget.cmdline:execute']
+    },
     extras_require={
         'tornado': ['tornado'],
-        '3m': ['os-3m-engine'],
+        'm3': ['os-m3-engine'],
     },
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
