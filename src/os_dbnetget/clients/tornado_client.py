@@ -1,15 +1,20 @@
 import datetime
 import functools
 import logging
+import random
 import socket
+from datetime import timedelta
 
 from tornado import gen, queues
 from tornado.ioloop import IOLoop
 from tornado.iostream import StreamClosedError
+from tornado.locks import Lock
 from tornado.tcpclient import TCPClient
 from tornado.util import TimeoutError
 
-from ..exceptions import RetryLimitExceeded, ServerClosed, Unavailable
+from ..exceptions import (ResourceLimit, RetryLimitExceeded, ServerClosed,
+                          Unavailable)
+from ..utils import split_endpoint
 from .client import RETRY_NETWORK_ERRNO, Client
 
 socket.setdefaulttimeout(10)
@@ -111,15 +116,123 @@ class TornadoClientPool(object):
         self._candidates = dict.fromkeys(self._endpoints, max_concurrency)
         self._kwargs = kwargs
         self._clients = queues.Queue()
+        self._create_lock = Lock()
+        self._close_lock = Lock()
         self._clients_count = 0
         self._closed = False
-        self._create_client()
+        self._closing = False
+        self._started = False
 
     def _create_client(self):
-        pass
+        try:
+            self._create_lock.acquire(timeout=timedelta(seconds=0.001))
+        except TimeoutError:
+            return
 
+        try:
+            self.__ensure_not_closed()
+            self.__ensure_not_closing()
+            if self._clients.qsize() > 0:
+                return
+
+            while len(self._candidates) > 0:
+                endpoint = random.sample(self._candidates.keys(), 1)[0]
+                if self._candidates[endpoint] <= 0:
+                    self._candidates.pop(endpoint)
+                    continue
+
+                address, port = split_endpoint(endpoint)
+                client = TornadoClient(address, port, **self._kwargs)
+                self._candidates[endpoint] -= 1
+                if self._candidates[endpoint] <= 0:
+                    self._candidates.pop(endpoint)
+                self._clients.put(client)
+                self._clients_count += 1
+                _logger.debug('Create a new client, %s' % endpoint)
+                return
+
+            raise ResourceLimit('No more available endpoint')
+        finally:
+            self._create_lock.release()
+
+    def _exhausted(self):
+        return self._clients_count <= 0 and len(self._candidates) <= 0
+
+    def __ensure_not_closing(self):
+        if self._closing:
+            raise Unavailable('Closing')
+
+    def __ensure_not_closed(self):
+        if self._closed:
+            raise Unavailable('Closed')
+
+    def __ensure_not_exhuasted(self):
+        if self._exhausted():
+            raise ResourceLimit('No more available client')
+
+    @gen.coroutine
+    def execute(self, qdb_proto):
+        while True:
+            self.__ensure_not_closed()
+            self.__ensure_not_closing()
+            self.__ensure_not_exhuasted()
+            if not self._started:
+                try:
+                    self._create_client()
+                except:
+                    continue
+                finally:
+                    self._started = True
+            try:
+                client = yield self._clients.get(timeout=timedelta(seconds=1))
+            except TimeoutError as e:
+                try:
+                    self._create_client()
+                except ResourceLimit:
+                    pass
+                continue
+
+            try:
+                r = yield client.execute(qdb_proto)
+                yield self._clients.put(client)
+            except Exception as e:
+                _logger.error('Unexpected error, %s' % str(e))
+                self._release_client(client)
+                continue
+            finally:
+                self._clients.task_done()
+
+            raise gen.Return(r)
+
+    def _release_client(self, client):
+        try:
+            if client:
+                client.close()
+        finally:
+            self._clients_count -= 1
+
+    @gen.coroutine
     def close(self):
+        self._close_lock.acquire()
+        if self._closed:
+            self._close_lock.release()
+            return
         self._closing = True
-        while self._clients_count > 0:
-            client = self._clients.get()
-            self._release_client(client)
+
+        try:
+            self._create_lock.acquire()
+            while self._clients_count > 0:
+                try:
+                    client = yield self._clients.get(timeout=timedelta(seconds=0.1))
+                except TimeoutError:
+                    continue
+
+                try:
+                    self._release_client(client)
+                finally:
+                    self._clients.task_done()
+            self._closed = True
+        finally:
+            self._closing = False
+            self._create_lock.release()
+            self._close_lock.release()
