@@ -149,6 +149,7 @@ class SyncClientPool(object):
                     self._candidates.pop(endpoint)
                 self._clients.put(client)
                 self._clients_count += 1
+                _logger.debug('Create a new client, %s' % endpoint)
                 return
 
             raise ResourceLimit('No more available endpoint')
@@ -188,6 +189,7 @@ class SyncClientPool(object):
                     continue
 
             except Exception as e:
+                _logger.error('Unexpected error, %s' % str(e))
                 self._release_client(client)
 
     def _release_client(self, client):
@@ -196,7 +198,7 @@ class SyncClientPool(object):
                 client.close()
         finally:
             self._clients_count -= 1
-            
+
     def closed(self):
         return self._closed
 
