@@ -1,16 +1,16 @@
-import logging
-import socket
 import datetime
 import functools
+import logging
+import socket
 
-from tornado import gen
+from tornado import gen, queues
 from tornado.ioloop import IOLoop
+from tornado.iostream import StreamClosedError
 from tornado.tcpclient import TCPClient
 from tornado.util import TimeoutError
-from tornado.iostream import StreamClosedError
 
-from ..exceptions import RetryLimitExceeded, ServerClosed
-from .client import Client, RETRY_NETWORK_ERRNO
+from ..exceptions import RetryLimitExceeded, ServerClosed, Unavailable
+from .client import RETRY_NETWORK_ERRNO, Client
 
 socket.setdefaulttimeout(10)
 
@@ -28,13 +28,13 @@ class TornadoClient(Client):
         self._retry_interval = kwargs.get('retry_interval', 5)
         self._retry_count = 0
         self._stream = None
+        self._closed = False
 
     @gen.coroutine
     def _reconnect(self):
         while self._retry_count < self._retry_max:
-            if self._stream is not None and not self._stream.closed():
-                self._stream.close()
-                self._stream = None
+            self.__ensure_not_closed()
+            self.__close_stream()
             try:
                 self._stream = yield TCPClient().connect(self._address, self._port,
                                                          timeout=self._connect_timeout)
@@ -54,6 +54,7 @@ class TornadoClient(Client):
                 if self._retry_count < self._retry_max:
                     yield gen.sleep(self._retry_interval)
 
+        self.__ensure_not_closed()
         if self._retry_count >= self._retry_max:
             raise RetryLimitExceeded('Exceed retry limit %d/%d' %
                                      (self._retry_count, self._retry_max))
@@ -61,6 +62,7 @@ class TornadoClient(Client):
 
     @gen.coroutine
     def _execute(self, qdb_proto):
+        self.__ensure_not_closed()
         for data in qdb_proto.upstream():
             yield self._stream.write(data)
         downstream = qdb_proto.downstream()
@@ -86,8 +88,38 @@ class TornadoClient(Client):
                 _logger.warn('Network error: %s' % str(e))
                 yield self._reconnect()
 
-    def close(self):
+    def __ensure_not_closed(self):
+        if self._closed:
+            raise Unavailable('Client already closed')
+
+    def __close_stream(self):
         if self._stream is not None:
-            if not self._stream.closed():
+            try:
                 self._stream.close()
+            finally:
                 self._stream = None
+
+    def close(self):
+        self.__close_stream()
+        self._closed = True
+
+
+class TornadoClientPool(object):
+
+    def __init__(self, endpoints, max_concurrency=1, **kwargs):
+        self._endpoints = endpoints
+        self._candidates = dict.fromkeys(self._endpoints, max_concurrency)
+        self._kwargs = kwargs
+        self._clients = queues.Queue()
+        self._clients_count = 0
+        self._closed = False
+        self._create_client()
+
+    def _create_client(self):
+        pass
+
+    def close(self):
+        self._closing = True
+        while self._clients_count > 0:
+            client = self._clients.get()
+            self._release_client(client)

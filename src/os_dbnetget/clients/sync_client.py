@@ -106,8 +106,7 @@ class SyncClient(Client):
                 self._socket = None
 
     def close(self):
-
-        self.__reset_socket()
+        self.__close_socket()
         self._closed = True
 
 
