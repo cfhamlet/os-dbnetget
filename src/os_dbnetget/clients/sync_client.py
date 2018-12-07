@@ -130,6 +130,8 @@ class SyncClientPool(object):
         try:
             self.__ensure_not_closed()
             self.__ensure_not_closing()
+            if self._clients.qsize() > 0:
+                return
 
             while len(self._candidates) > 0:
                 endpoint = random.sample(self._candidates.keys(), 1)[0]
