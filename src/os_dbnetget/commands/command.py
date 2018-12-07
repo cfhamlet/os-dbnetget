@@ -1,0 +1,2 @@
+class Command(object):
+    pass
