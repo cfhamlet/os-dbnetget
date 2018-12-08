@@ -128,10 +128,10 @@ class SyncClientPool(object):
         with self._create_lock:
             self.__ensure_not_closed()
             self.__ensure_not_closing()
-            if self._clients.qsize() > 0:
-                return
 
             while len(self._candidates) > 0:
+                if self._clients.qsize() > 0:
+                    return
                 endpoint = random.sample(self._candidates.keys(), 1)[0]
                 if self._candidates[endpoint] <= 0:
                     self._candidates.pop(endpoint)
