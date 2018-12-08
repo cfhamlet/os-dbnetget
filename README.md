@@ -6,7 +6,7 @@
 [![PyPI](https://img.shields.io/pypi/v/os-dbnetget.svg)](https://pypi.python.org/pypi/os-dbnetget)
 
 
-qdb sync/async client library.
+Library and command line tool not just for qdb.
  
 
 # Install

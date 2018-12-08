@@ -1,6 +1,22 @@
 import inspect
+import sys
+from argparse import ArgumentError, ArgumentParser
 from importlib import import_module
 from pkgutil import iter_modules
+
+_PY3 = sys.version_info[0] == 3
+
+if _PY3:
+    import queue as Queue
+    binary_stdin = sys.stdin.buffer
+else:
+    import Queue
+    if sys.platform == "win32":
+        # set sys.stdin to binary mode
+        import os
+        import msvcrt
+        msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
+    binary_stdin = sys.stdin
 
 
 def walk_modules(module_path, skip_fail=True):
@@ -46,3 +62,9 @@ def split_endpoint(endpint):
     address, port = endpint.split(':')
     port = int(port)
     return address, port
+
+
+class CustomArgumentParser(ArgumentParser):
+    def parse_args(self, args=None, namespace=None):
+        args, argv = self.parse_known_args(args, namespace)
+        return args

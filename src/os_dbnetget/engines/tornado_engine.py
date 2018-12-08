@@ -1,5 +1,5 @@
 from .engine import Engine
 
 
-class TornadoEngine(Engine):
-    pass
+class Tornado(Engine):
+    engine_name = 'tornado'
