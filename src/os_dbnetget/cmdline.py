@@ -97,7 +97,9 @@ def _install_commands(parser, cmds, config):
                                            description=desc_string,
                                            help=cmd.HELP,
                                            usage=_usage(cmd_name, '[OPTIONS]'),
-                                           formatter_class=RawDescriptionHelpFormatter)
+                                           formatter_class=RawDescriptionHelpFormatter,
+                                           add_help=False,
+                                           )
         cmd_parser.add_argument('--engine', **engine_kwargs)
 
 
@@ -118,11 +120,11 @@ def _usage(o, c):
         o, c)
 
 
-def _create_parser(parser_cls):
+def _create_parser(parser_cls, **kwargs):
     return parser_cls(
         description='Command line tool not just for qdb',
         usage=_usage('[OPTIONS]', 'SUBCOMMAND'),
-        formatter_class=RawDescriptionHelpFormatter)
+        formatter_class=RawDescriptionHelpFormatter, **kwargs)
 
 
 def _run(cmds, args):
@@ -152,6 +154,7 @@ def execute(argv=None):
         pre_parser.print_help()
         sys.exit(0)
     pre_args = pre_parser.parse_args(args=argv)
+#    print(pre_args)
 #    _install_commands(run_parser, cmds, pre_args.engine)
 #    run_args = run_parser.parse_args(args=argv)
 #    _run(cmds, run_args)
