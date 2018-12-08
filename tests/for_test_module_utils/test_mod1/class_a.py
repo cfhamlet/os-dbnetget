@@ -1,0 +1,2 @@
+class classA(object):
+    pass
