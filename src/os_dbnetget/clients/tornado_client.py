@@ -38,7 +38,6 @@ class TornadoClient(Client):
     @gen.coroutine
     def _reconnect(self):
         while self._retry_count < self._retry_max:
-            self.__ensure_not_closed()
             self.__close_stream()
             try:
                 self._stream = yield TCPClient().connect(self._address, self._port,
@@ -123,19 +122,15 @@ class TornadoClientPool(object):
         self._closing = False
         self._started = False
 
+    @gen.coroutine
     def _create_client(self):
-        try:
-            self._create_lock.acquire(timeout=timedelta(seconds=0.001))
-        except TimeoutError:
-            return
-
-        try:
+        with (yield self._create_lock.acquire()):
             self.__ensure_not_closed()
             self.__ensure_not_closing()
-            if self._clients.qsize() > 0:
-                return
 
             while len(self._candidates) > 0:
+                if self._clients.qsize() > 0:
+                    return
                 endpoint = random.sample(self._candidates.keys(), 1)[0]
                 if self._candidates[endpoint] <= 0:
                     self._candidates.pop(endpoint)
@@ -146,14 +141,12 @@ class TornadoClientPool(object):
                 self._candidates[endpoint] -= 1
                 if self._candidates[endpoint] <= 0:
                     self._candidates.pop(endpoint)
-                self._clients.put(client)
+                yield self._clients.put(client)
                 self._clients_count += 1
                 _logger.debug('Create a new client, %s' % endpoint)
                 return
 
             raise ResourceLimit('No more available endpoint')
-        finally:
-            self._create_lock.release()
 
     def _exhausted(self):
         return self._clients_count <= 0 and len(self._candidates) <= 0
@@ -178,7 +171,7 @@ class TornadoClientPool(object):
             self.__ensure_not_exhuasted()
             if not self._started:
                 try:
-                    self._create_client()
+                    yield self._create_client()
                 except:
                     continue
                 finally:
@@ -187,7 +180,7 @@ class TornadoClientPool(object):
                 client = yield self._clients.get(timeout=timedelta(seconds=1))
             except TimeoutError as e:
                 try:
-                    self._create_client()
+                    yield self._create_client()
                 except ResourceLimit:
                     pass
                 continue
@@ -213,26 +206,21 @@ class TornadoClientPool(object):
 
     @gen.coroutine
     def close(self):
-        self._close_lock.acquire()
-        if self._closed:
-            self._close_lock.release()
-            return
-        self._closing = True
+        with (yield self._close_lock.acquire()):
+            if self._closed:
+                return
 
-        try:
-            self._create_lock.acquire()
-            while self._clients_count > 0:
-                try:
-                    client = yield self._clients.get(timeout=timedelta(seconds=0.1))
-                except TimeoutError:
-                    continue
+            self._closing = True
+            with (yield self._create_lock.acquire()):
+                while self._clients_count > 0:
+                    try:
+                        client = yield self._clients.get(timeout=timedelta(seconds=0.1))
+                    except TimeoutError:
+                        continue
 
-                try:
-                    self._release_client(client)
-                finally:
-                    self._clients.task_done()
-            self._closed = True
-        finally:
+                    try:
+                        self._release_client(client)
+                    finally:
+                        self._clients.task_done()
+                self._closed = True
             self._closing = False
-            self._create_lock.release()
-            self._close_lock.release()
