@@ -1,2 +1,5 @@
-class classA(object):
+class ClassA(object):
+    pass
+
+class ClassAA(ClassA):
     pass

@@ -32,3 +32,11 @@ def test_iter_classes():
         'ClassB',
     ]
     assert set([c.__name__ for c in classes]) == set(expected)
+
+    from tests.for_test_module_utils.test_mod1.class_a import ClassA
+    classes = [c for c in utils.iter_classes('tests.for_test_module_utils', (ClassA, BaseClass))]
+    expected = [
+        'ClassB',
+        'ClassAA',
+    ]
+    assert set([c.__name__ for c in classes]) == set(expected)

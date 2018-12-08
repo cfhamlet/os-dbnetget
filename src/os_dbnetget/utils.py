@@ -35,7 +35,10 @@ def iter_classes(module_path, base_class, include_base_class=False):
             if inspect.isclass(obj) and \
                     issubclass(obj, base_class) and \
                     obj.__module__ == module.__name__ and \
-                    (include_base_class or obj != base_class):
+                    (include_base_class or
+                     all([obj != base for base in base_class])
+                     if isinstance(base_class, tuple)
+                     else obj != base_class):
                 yield obj
 
 
