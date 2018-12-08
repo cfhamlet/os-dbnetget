@@ -56,12 +56,12 @@ def _find_commands(cmds, cmds_path):
             warnings.warn('Find duplicated command %s, %s' %
                           (cmd_name, cmd_cls))
             continue
-        engine_name = cmd_cls.engine_name if hasattr(
-            cmd_cls, 'engine_name') else None
+        engine_name = cmd_cls.ENGINE_NAME if hasattr(
+            cmd_cls, 'ENGINE_NAME') else None
         if engine_name is None:
             engine_cls = _get_engine_cls(cmd_cls)
-            engine_name = engine_cls.engine_name if hasattr(
-                engine_cls, 'engine_name') else engine_cls.__name__.lower()
+            engine_name = engine_cls.ENGINE_NAME if hasattr(
+                engine_cls, 'ENGINE_NAME') else engine_cls.__name__.lower()
         if cmd_name not in sub_cmds:
             sub_cmds[cmd_name] = {}
         engines = sub_cmds[cmd_name]
@@ -76,6 +76,8 @@ def _find_commands(cmds, cmds_path):
 
 
 def _install_commands(parser, cmds, config):
+    if not cmds:
+        return
     sub_parser = parser.add_subparsers(
         title=config['title'],
         help=config['help'],
@@ -88,7 +90,10 @@ def _install_commands(parser, cmds, config):
             'choices': engines.keys(),
         }
         desc_string = cmd.DESCRIPTION
-        if 'default' in engines:
+        if len(engines) == 1:
+            desc_string = cmd.description()
+            engine_kwargs['default'] = cmd.ENGINE_NAME
+        elif 'default' in engines:
             desc_string = engines['default'].description()
             engine_kwargs['default'] = 'default'
 
@@ -101,6 +106,33 @@ def _install_commands(parser, cmds, config):
                                            add_help=False,
                                            )
         cmd_parser.add_argument('--engine', **engine_kwargs)
+
+
+def _install_command(parser, cmds, cmd_name, engine):
+    sub_parser = parser.add_subparsers(
+        dest='command',
+    )
+    engines = cmds[cmd_name]
+    cmd = list(cmds[cmd_name].values())[0]
+    engine_kwargs = {
+        'choices': engines.keys(),
+    }
+    desc_string = cmd.DESCRIPTION
+
+    if engine in engines:
+        desc_string = engines[engine].description()
+
+    cmd_parser = sub_parser.add_parser(cmd_name,
+                                       prog=parser.prog,
+                                       description=desc_string,
+                                       help=cmd.HELP,
+                                       usage=_usage(cmd_name, '[OPTIONS]'),
+                                       formatter_class=RawDescriptionHelpFormatter,
+                                       )
+
+    cmd_parser.add_argument('--engine', **engine_kwargs)
+    if engine:
+        cmd.add_argument(cmd_parser)
 
 
 def _add_global_argument(parser):
@@ -154,10 +186,11 @@ def execute(argv=None):
         pre_parser.print_help()
         sys.exit(0)
     pre_args = pre_parser.parse_args(args=argv)
-#    print(pre_args)
-#    _install_commands(run_parser, cmds, pre_args.engine)
-#    run_args = run_parser.parse_args(args=argv)
-#    _run(cmds, run_args)
+    _install_command(run_parser, cmds, pre_args.command, pre_args.engine)
+    run_args = run_parser.parse_args(args=argv)
+
+    cmd = cmds[run_args.command][run_args.engine]
+    cmd.start(run_args)
 
 
 if __name__ == '__main__':

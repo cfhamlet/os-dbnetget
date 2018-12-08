@@ -12,7 +12,7 @@ class QDB(Command):
         parser.add_argument('-i', '--inputs',
                             help='input files to be processed (default: stdin)',
                             nargs='+',
-                            types=argparse.FileType('rb'),
+                            type=argparse.FileType('rb'),
                             default=[binary_stdin],
                             dest='inputs',
                             )

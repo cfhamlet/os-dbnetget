@@ -3,4 +3,4 @@ from .engine import Engine
 
 class M3(Engine):
 
-    engine_name = 'm3'
+    ENGINE_NAME = 'm3'

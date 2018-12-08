@@ -1,5 +1,5 @@
 class Engine(object):
-    name = '__Base__'
+    ENGINE_NAME = '__Base__'
 
-    def start(self):
+    def start(self, args):
         pass

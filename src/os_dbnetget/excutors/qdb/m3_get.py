@@ -3,5 +3,4 @@ from os_dbnetget.engines.m3_engine import M3
 
 
 class Get(GetCommand, M3):
-    def description(self):
-        return 'Get data from qdb\n    engine: [m3]'
+    pass

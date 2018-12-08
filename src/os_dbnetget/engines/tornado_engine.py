@@ -2,4 +2,4 @@ from .engine import Engine
 
 
 class Tornado(Engine):
-    engine_name = 'tornado'
+    ENGINE_NAME = 'tornado'
