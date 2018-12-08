@@ -125,9 +125,7 @@ class SyncClientPool(object):
         self._started = False
 
     def _create_client(self):
-        if not self._create_lock.acquire(False):
-            return
-        try:
+        with self._create_lock:
             self.__ensure_not_closed()
             self.__ensure_not_closing()
             if self._clients.qsize() > 0:
@@ -150,9 +148,6 @@ class SyncClientPool(object):
                 return
 
             raise ResourceLimit('No more available endpoint')
-
-        finally:
-            self._create_lock.release()
 
     def _exhausted(self):
         return self._clients_count <= 0 and len(self._candidates) <= 0
@@ -208,22 +203,17 @@ class SyncClientPool(object):
         return self._closed
 
     def close(self):
-        self._close_lock.acquire()
-        if self._closed:
-            self._close_lock.release()
-            return
-        self._closing = True
+        with self._close_lock:
+            if self._closed:
+                return
 
-        try:
-            self._create_lock.acquire()
-            while self._clients_count > 0:
-                try:
-                    client = self._clients.get(0.1)
-                except Queue.Empty:
-                    pass
-                self._release_client(client)
-            self._closed = True
-        finally:
+            self._closing = True
+            with self._create_lock:
+                while self._clients_count > 0:
+                    try:
+                        client = self._clients.get(0.1)
+                    except Queue.Empty:
+                        pass
+                    self._release_client(client)
+                self._closed = True
             self._closing = False
-            self._create_lock.release()
-            self._close_lock.release()
