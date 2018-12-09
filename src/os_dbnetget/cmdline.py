@@ -8,11 +8,10 @@ import logging
 import sys
 import warnings
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-from commands.command import Command
+from os_dbnetget.commands import Command
 from logging.config import dictConfig
 
 import os_dbnetget
-from engines.engine import Engine
 from os_dbnetget.utils import iter_classes
 from utils import CustomArgumentParser
 
@@ -42,26 +41,17 @@ def _config_logging(log_level):
     logging.root.addHandler(handler)
 
 
-def _get_engine_cls(cmd_cls):
-    for c in inspect.getmro(cmd_cls):
-        if cmd_cls != c and issubclass(c, Engine) and c != Engine:
-            return c
-
-
 def _find_commands(cmds, cmds_path):
     sub_cmds = {}
-    for cmd_cls in iter_classes(cmds_path, (Engine, Command)):
+    for cmd_cls in iter_classes(cmds_path,  Command):
         cmd_name = cmd_cls.__name__.lower()
         if cmd_name in cmds:
             warnings.warn('Find duplicated command %s, %s' %
                           (cmd_name, cmd_cls))
             continue
-        engine_name = cmd_cls.ENGINE_NAME if hasattr(
-            cmd_cls, 'ENGINE_NAME') else None
-        if engine_name is None:
-            engine_cls = _get_engine_cls(cmd_cls)
-            engine_name = engine_cls.ENGINE_NAME if hasattr(
-                engine_cls, 'ENGINE_NAME') else engine_cls.__name__.lower()
+        if not hasattr(cmd_cls, 'ENGINE_NAME'):
+            continue
+        engine_name = cmd_cls.ENGINE_NAME
         if cmd_name not in sub_cmds:
             sub_cmds[cmd_name] = {}
         engines = sub_cmds[cmd_name]
@@ -120,6 +110,7 @@ def _install_command(parser, cmds, cmd_name, engine):
     desc_string = cmd.DESCRIPTION
 
     if engine in engines:
+        engine_kwargs['default'] = engine
         desc_string = engines[engine].description()
 
     cmd_parser = sub_parser.add_parser(cmd_name,
@@ -166,7 +157,7 @@ def _run(cmds, args):
 
 _COMMANDS = [
     {'title': 'qdb-commands', 'help': None,
-        'cmds_path': 'os_dbnetget.excutors.qdb'},
+        'cmds_path': 'os_dbnetget.commands.qdb'},
 ]
 
 
@@ -181,16 +172,14 @@ def execute(argv=None):
     for c in _COMMANDS:
         sub_cmds = _find_commands(cmds, c['cmds_path'])
         _install_commands(pre_parser, sub_cmds, c)
-
     if not argv:
         pre_parser.print_help()
         sys.exit(0)
     pre_args = pre_parser.parse_args(args=argv)
     _install_command(run_parser, cmds, pre_args.command, pre_args.engine)
     run_args = run_parser.parse_args(args=argv)
-
     cmd = cmds[run_args.command][run_args.engine]
-    cmd.start(run_args)
+    cmd.run(run_args)
 
 
 if __name__ == '__main__':

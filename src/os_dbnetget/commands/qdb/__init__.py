@@ -1,7 +1,7 @@
 
 import argparse
 
-from os_dbnetget.commands.command import Command
+from os_dbnetget.commands import Command
 from os_dbnetget.utils import binary_stdin
 
 
