@@ -177,8 +177,10 @@ class SyncClientPool(object):
                     continue
                 finally:
                     self._started = True
+
+            client = None
             try:
-                client = self._clients.get(block=True, timeout=1)
+                client = self._clients.get(timeout=1)
                 r = client.execute(qdb_proto)
                 self._clients.put(client)
                 return r
@@ -210,8 +212,9 @@ class SyncClientPool(object):
             self._closing = True
             with self._create_lock:
                 while self._clients_count > 0:
+                    client = None
                     try:
-                        client = self._clients.get(0.1)
+                        client = self._clients.get(timeout=0.1)
                     except Queue.Empty:
                         pass
                     self._release_client(client)
