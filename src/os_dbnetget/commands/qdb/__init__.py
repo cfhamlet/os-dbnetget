@@ -1,5 +1,4 @@
 import argparse
-import signal
 
 from os_dbnetget.commands import Command
 from os_dbnetget.utils import binary_stdin
@@ -8,7 +7,13 @@ from os_dbnetget.exceptions import UsageError
 
 class QDB(Command):
 
+    def __init__(self, config):
+        super(QDB, self).__init__(config)
+        self._runner = None
+
+
     def add_arguments(self, parser):
+        super(QDB,self).add_arguments(parser)
         parser.add_argument('-i', '--inputs',
                             help='input files to be processed (default: stdin)',
                             nargs='+',
@@ -30,7 +35,24 @@ class QDB(Command):
                             type=argparse.FileType('rb'),
                             dest='endpoints_list',
                             )
+        self._runner.process_arguments(parser)
 
     def process_arguments(self, args):
+        super(QDB, self).process_arguments(args)
         if not (args.endpoints or args.endpoints_list):
             raise UsageError('No endpoints, add \'-E\' or \'-L\' argument')
+        endpoints = None
+        if args.endpoints:
+            endpoints = tuple([e.strip()
+                               for e in args.endpoints.split(',') if e.strip()])
+        else:
+            endpoints = tuple([e.strip()
+                               for e in args.endpoints_list if e.strip()])
+        if not endpoints:
+            raise UsageError('No endpoints, check your arguments')
+
+        self.config.endpoints = endpoints
+        self._runner.process_arguments(args)
+
+    def run(self, args):
+        self._runner.run(args)

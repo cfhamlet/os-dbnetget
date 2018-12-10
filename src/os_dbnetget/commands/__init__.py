@@ -1,10 +1,15 @@
-
+from os_config import Config
 
 class Command(object):
 
     HELP = ''
     DESCRIPTION = ''
     ENGINE_NAME = None
+
+    def __init__(self ,config = None):
+        if config is None:
+            config = Config.create()
+        self.config = config
 
     def add_arguments(self, parser):
         pass
