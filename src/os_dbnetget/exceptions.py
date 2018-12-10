@@ -12,3 +12,7 @@ class ResourceLimit(Exception):
 
 class Unavailable(Exception):
     pass
+
+
+class UsageError(Exception):
+    pass

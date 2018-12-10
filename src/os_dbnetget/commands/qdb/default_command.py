@@ -1,44 +1,41 @@
-import logging
-import signal
-from io import BytesIO
-from itertools import chain
-
-from os_docid import docid
-from os_qdb_protocal import create_protocal
-
-from os_dbnetget.clients.sync_client import SyncClientPool
-from os_dbnetget.commands.qdb.default_command import DefaultCommand
-from os_dbnetget.exceptions import UsageError
+from os_dbnetget.commands.qdb import QDB
 from os_dbnetget.utils import binary_stdout
 
-_logger = logging.getLogger(__name__)
 
+class DefaultCommand(QDB):
 
-class Get(DefaultCommand):
-    ENGINE_NAME = 'default'
+    def __init__(self):
+        super(DefaultCommand, self).__init__()
+        self._client = None
+        self._output = None
 
-
-    def _get_endpoints(self, args):
-
-        endpoints = None
-        if args.endpoints:
-            endpoints = tuple([e.strip()
-                               for e in args.endpoints.split(',') if e.strip()])
+    def _create_output(self, args):
+        output = None
+        if args.output is None:
+            output = binary_stdout
         else:
-            endpoints = tuple([e.strip()
-                               for e in args.endpoints_list if e.strip()])
-        if not endpoints:
-            raise UsageError('No endpoints, check your arguments')
+            if not hasattr(args, 'output_type'):
+                output = open(args.output, 'ab')
+            elif args.output_type == 'single':
+                output = open(args.output, 'ab')
+            elif args.output_type == 'rotate':
+                from os_rotatefile import open_file
+                output = open_file(args.output, 'w')
+        return output
 
-        return endpoints
-
-    def _create_client_pool(self, args):
-        return SyncClientPool(self._get_endpoints(args))
+    def _close(self):
+        try:
+            if self._pool:
+                self._pool.close()
+            if self._output:
+                self._output.close()
+        except:
+            pass
 
     def run(self, args):
 
-        pool = self._create_client_pool(args)
-        ouput = self._create_output(args)
+        self._pool = self._create_client_pool(args)
+        self._ouput = self._create_output(args)
         stop = False
 
         def on_stop(signum, frame):

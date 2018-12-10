@@ -33,6 +33,7 @@ setup(
     extras_require={
         'tornado': ['tornado'],
         'm3': ['os-m3-engine'],
+        'rotate': ['os-rotatefile'],
     },
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',

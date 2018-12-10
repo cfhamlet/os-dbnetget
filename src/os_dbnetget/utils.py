@@ -9,6 +9,7 @@ _PY3 = sys.version_info[0] == 3
 if _PY3:
     import queue as Queue
     binary_stdin = sys.stdin.buffer
+    binary_stdout = sys.stdout.buffer
 else:
     import Queue
     if sys.platform == "win32":
@@ -17,6 +18,7 @@ else:
         import msvcrt
         msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
     binary_stdin = sys.stdin
+    binary_stdout = sys.stdout
 
 
 def walk_modules(module_path, skip_fail=True):
@@ -45,8 +47,8 @@ def walk_modules(module_path, skip_fail=True):
     return mods
 
 
-def iter_classes(module_path, base_class, include_base_class=False):
-    for module in walk_modules(module_path):
+def iter_classes(module_path, base_class, include_base_class=False, skip_fail=True):
+    for module in walk_modules(module_path, skip_fail=skip_fail):
         for obj in vars(module).values():
             if inspect.isclass(obj) and \
                     issubclass(obj, base_class) and \

@@ -8,10 +8,11 @@ import logging
 import sys
 import warnings
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-from os_dbnetget.commands import Command
 from logging.config import dictConfig
 
 import os_dbnetget
+from os_dbnetget.commands import Command
+from os_dbnetget.exceptions import UsageError
 from os_dbnetget.utils import iter_classes
 from utils import CustomArgumentParser
 
@@ -49,7 +50,7 @@ def _find_commands(cmds, cmds_path):
             warnings.warn('Find duplicated command %s, %s' %
                           (cmd_name, cmd_cls))
             continue
-        if not hasattr(cmd_cls, 'ENGINE_NAME'):
+        if not hasattr(cmd_cls, 'ENGINE_NAME') or cmd_cls.ENGINE_NAME is None:
             continue
         engine_name = cmd_cls.ENGINE_NAME
         if cmd_name not in sub_cmds:
@@ -123,7 +124,7 @@ def _install_command(parser, cmds, cmd_name, engine):
 
     cmd_parser.add_argument('--engine', **engine_kwargs)
     if engine:
-        cmd.add_argument(cmd_parser)
+        cmd.add_arguments(cmd_parser)
 
 
 def _add_global_argument(parser):
@@ -150,11 +151,6 @@ def _create_parser(parser_cls, **kwargs):
         formatter_class=RawDescriptionHelpFormatter, **kwargs)
 
 
-def _run(cmds, args):
-    print(args)
-    pass
-
-
 _COMMANDS = [
     {'title': 'qdb-commands', 'help': None,
         'cmds_path': 'os_dbnetget.commands.qdb'},
@@ -176,10 +172,16 @@ def execute(argv=None):
         pre_parser.print_help()
         sys.exit(0)
     pre_args = pre_parser.parse_args(args=argv)
+    _config_logging(pre_args.log_level)
     _install_command(run_parser, cmds, pre_args.command, pre_args.engine)
     run_args = run_parser.parse_args(args=argv)
     cmd = cmds[run_args.command][run_args.engine]
-    cmd.run(run_args)
+    try:
+        cmd.process_arguments(run_args)
+        cmd.run(run_args)
+    except UsageError as e:
+        print('Error: %s' % str(e))
+        sys.exit(2)
 
 
 if __name__ == '__main__':
