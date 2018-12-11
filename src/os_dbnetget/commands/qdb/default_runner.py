@@ -6,9 +6,10 @@ from os_docid import docid
 from os_qdb_protocal import create_protocal
 
 from os_dbnetget.clients.sync_client import SyncClientPool
+from os_dbnetget.commands import Command
 
 
-class DefaultRunner(object):
+class DefaultRunner(Command):
 
     def __init__(self, config):
         self.config = config
@@ -48,7 +49,6 @@ class DefaultRunner(object):
         try:
             if self._client:
                 self._client.close()
-            self.config.output[0].close()
         except:
             pass
 
@@ -60,7 +60,7 @@ class DefaultRunner(object):
             signal.signal(sig, self._on_stop)
 
     def _run(self, args):
-        output = self.config.output[0]
+        output = self.config.output
         for line in chain.from_iterable(args.inputs):
             if self._stop:
                 break
