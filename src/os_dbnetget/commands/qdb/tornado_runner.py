@@ -1,0 +1,104 @@
+from datetime import timedelta
+from functools import partial
+from itertools import chain
+
+from os_docid import docid
+from os_qdb_protocal import create_protocal
+from tornado import gen, queues
+from tornado.util import TimeoutError
+from tornado.concurrent import run_on_executor
+from tornado.ioloop import IOLoop, ThreadPoolExecutor
+
+from os_dbnetget.clients.tornado_client import TornadoClientPool
+from os_dbnetget.commands.qdb.default_runner import DefaultRunner
+
+
+class TornadoRunner(DefaultRunner):
+
+    def __init__(self, config):
+        super(TornadoRunner, self).__init__(config)
+        self._queue = queues.Queue(maxsize=100)
+
+    def add_arguments(self, parser):
+        super(TornadoRunner, self).add_arguments(parser)
+        parser.add_argument('--concurrency',
+                            help='concurrency (default: 10)',
+                            type=int,
+                            default=10,
+                            dest='concurrency',
+                            )
+
+    def process_arguments(self, args):
+        self.config.inputs = args.inputs
+        self.config.concurrency = args.concurrency
+        self._client = TornadoClientPool(self.config.endpoints,
+                                         timeout=args.client_timeout,
+                                         retry_max=args.client_retry_max,
+                                         retry_interval=args.client_retry_interval)
+
+    @gen.coroutine
+    def _read(self):
+        for line in chain.from_iterable(self.config.inputs):
+            if self._stop:
+                break
+            line = line.strip()
+            yield self._queue.put(line)
+        yield gen.multi([self._queue.put(None) for _ in range(0, self.config.concurrency)])
+
+    @gen.coroutine
+    def _process_data(self, data):
+        try:
+            d = docid(data)
+        except NotImplementedError:
+            self._process_result(data, None)
+            return
+
+        proto = create_protocal(self.config.cmd, d.bytes[16:])
+        p = yield self._client.execute(proto)
+        self._process_result(data, p)
+
+    def _process_result(self, data, proto):
+        status = 'N'
+        if proto is None:
+            status = 'E'
+        if status != 'E':
+            if proto.value:
+                status = 'Y'
+                self.config.output.write(proto.value)
+        self._logger.info('%s\t%s' % (data, status))
+
+    @gen.coroutine
+    def _run(self, args):
+        IOLoop.current().spawn_callback(self._read)
+        yield gen.multi([self._process(args) for _ in range(0, self.config.concurrency)])
+        yield self._close()
+
+    @gen.coroutine
+    def _process(self, args):
+        while True:
+            if self._stop and self._queue.qsize <= 0:
+                break
+            try:
+                data = yield self._queue.get(timeout=timedelta(seconds=0.1))
+            except TimeoutError:
+                continue
+            try:
+                if data is None:
+                    break
+                yield self._process_data(data)
+            finally:
+                self._queue.task_done()
+
+    @gen.coroutine
+    def _close(self):
+        try:
+            yield self._client.close()
+        except:
+            pass
+
+    def _on_stop(self, signum, frame):
+        self._stop = True
+
+    def run(self, args):
+        self._register_signal()
+        IOLoop.current().run_sync(partial(self._run, args))

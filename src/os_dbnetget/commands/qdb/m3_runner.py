@@ -69,9 +69,9 @@ class M3Runner(DefaultRunner):
     def add_arguments(self, parser):
         super(M3Runner, self).add_arguments(parser)
         parser.add_argument('--thread-num',
-                            help='thread num (default: 3)',
+                            help='thread num (default: 10)',
                             type=int,
-                            default=3,
+                            default=10,
                             dest='thread_num',
                             )
 
