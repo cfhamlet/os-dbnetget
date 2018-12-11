@@ -9,4 +9,3 @@ class Get(GetCommand):
         super(Get, self).__init__(config)
         self.config.cmd = 'get'
         self._runner = DefaultRunner(self.config)
-
