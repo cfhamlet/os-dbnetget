@@ -7,5 +7,4 @@ class Get(GetCommand):
 
     def __init__(self, config=None):
         super(Get, self).__init__(config)
-        self.config.cmd = 'get'
         self._runner = TornadoRunner(self.config)

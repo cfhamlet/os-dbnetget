@@ -4,13 +4,12 @@ from itertools import chain
 
 from os_docid import docid
 from os_qdb_protocal import create_protocal
-from tornado import gen, queues
-from tornado.util import TimeoutError
-from tornado.concurrent import run_on_executor
-from tornado.ioloop import IOLoop, ThreadPoolExecutor
 
 from os_dbnetget.clients.tornado_client import TornadoClientPool
 from os_dbnetget.commands.qdb.default_runner import DefaultRunner
+from tornado import gen, queues
+from tornado.ioloop import IOLoop 
+from tornado.util import TimeoutError
 
 
 class TornadoRunner(DefaultRunner):
@@ -37,7 +36,7 @@ class TornadoRunner(DefaultRunner):
         self._queue = queues.Queue(maxsize=args.concurrency * 3)
 
     @gen.coroutine
-    def _read(self):
+    def _loop_read(self):
         for line in chain.from_iterable(self.config.inputs):
             if self._stop:
                 break
@@ -46,35 +45,26 @@ class TornadoRunner(DefaultRunner):
         yield gen.multi([self._queue.put(None) for _ in range(0, self.config.concurrency)])
 
     @gen.coroutine
-    def _process_data(self, data):
+    def _process(self, data):
         try:
             d = docid(data)
         except NotImplementedError:
-            self._process_result(data, None)
+            self.config.processor.process(data, None)
             return
 
         proto = create_protocal(self.config.cmd, d.bytes[16:])
         p = yield self._client.execute(proto)
-        self._process_result(data, p)
+        self.config.processor.process(data, p)
 
-    def _process_result(self, data, proto):
-        status = 'N'
-        if proto is None:
-            status = 'E'
-        if status != 'E':
-            if proto.value:
-                status = 'Y'
-                self.config.output.write(proto.value)
-        self._logger.info('%s\t%s' % (data, status))
 
     @gen.coroutine
     def _run(self, args):
-        IOLoop.current().spawn_callback(self._read)
-        yield gen.multi([self._process(args) for _ in range(0, self.config.concurrency)])
+        IOLoop.current().spawn_callback(self._loop_read)
+        yield gen.multi([self._loop_process(args) for _ in range(0, self.config.concurrency)])
         yield self._close()
 
     @gen.coroutine
-    def _process(self, args):
+    def _loop_process(self, args):
         while True:
             if self._stop and self._queue.qsize <= 0:
                 break
@@ -85,7 +75,7 @@ class TornadoRunner(DefaultRunner):
             try:
                 if data is None:
                     break
-                yield self._process_data(data)
+                yield self._process(data)
             finally:
                 self._queue.task_done()
 

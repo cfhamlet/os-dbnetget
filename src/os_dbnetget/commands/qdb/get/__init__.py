@@ -1,10 +1,16 @@
 from os_dbnetget.utils import binary_stdout
 from os_dbnetget.commands.qdb import QDB
+from os_dbnetget.commands.qdb.get.processor import Processor
 
 
 class Get(QDB):
     HELP = 'get data from qdb'
     DESCRIPTION = 'Get data from qdb'
+
+    def __init__(self, config=None):
+        super(Get, self).__init__(config)
+        self.config.cmd = 'get'
+        self.config.processor = Processor(self.config)
 
     def description(self):
         return 'Get data from qdb\n    engine: [%s]' % self.ENGINE_NAME

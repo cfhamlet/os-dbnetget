@@ -2,14 +2,15 @@ import logging
 from itertools import chain
 
 from os_docid import docid
-from os_m3_engine.core.frontend import Frontend
-from os_m3_engine.core.transport import Transport
-from os_m3_engine.launcher import create
+from os_qdb_protocal import create_protocal
 
 from os_dbnetget.clients.sync_client import SyncClientPool
 from os_dbnetget.commands.qdb.default_runner import DefaultRunner
 from os_dbnetget.utils import Config
-from os_qdb_protocal import create_protocal
+from os_m3_engine.core.backend import Backend
+from os_m3_engine.core.frontend import Frontend
+from os_m3_engine.core.transport import Transport
+from os_m3_engine.launcher import create
 
 
 class InputsFrontend(Frontend):
@@ -30,6 +31,12 @@ class QDBTransport(Transport):
 
         p = self.config.client.execute(proto)
         return (data, p)
+
+class StoreBackend(Backend):
+
+    def process(self, data):
+        data, proto = data
+        self.config.processor.process(data, proto)
 
 
 class M3Runner(DefaultRunner):
