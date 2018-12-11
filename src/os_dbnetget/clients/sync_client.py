@@ -201,6 +201,11 @@ class SyncClientPool(object):
         finally:
             self._clients_count -= 1
 
+    def available(self):
+        if self._closing or self._closed:
+            return False
+        return True
+
     def closed(self):
         return self._closed
 
