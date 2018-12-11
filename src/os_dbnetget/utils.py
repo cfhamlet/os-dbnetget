@@ -21,6 +21,10 @@ else:
     binary_stdout = sys.stdout
 
 
+class Config(object):
+    pass
+
+
 def walk_modules(module_path, skip_fail=True):
 
     mods = []
