@@ -17,7 +17,6 @@ class TornadoRunner(DefaultRunner):
 
     def __init__(self, config):
         super(TornadoRunner, self).__init__(config)
-        self._queue = queues.Queue(maxsize=100)
 
     def add_arguments(self, parser):
         super(TornadoRunner, self).add_arguments(parser)
@@ -35,6 +34,7 @@ class TornadoRunner(DefaultRunner):
                                          timeout=args.client_timeout,
                                          retry_max=args.client_retry_max,
                                          retry_interval=args.client_retry_interval)
+        self._queue = queues.Queue(maxsize=args.concurrency * 3)
 
     @gen.coroutine
     def _read(self):
