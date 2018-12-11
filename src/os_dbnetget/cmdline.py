@@ -104,7 +104,7 @@ def _install_command(parser, cmds, cmd_name, engine):
         dest='command',
     )
     engines = cmds[cmd_name]
-    cmd = list(cmds[cmd_name].values())[0]
+    cmd = engines[engine]
     engine_kwargs = {
         'choices': engines.keys(),
     }
@@ -132,8 +132,9 @@ def _add_global_argument(parser):
                         version='%(prog)s {version}'.format(version=os_dbnetget.__version__))
     parser.add_argument('-l', '--log-level',
                         dest='log_level',
+                        help= 'log level (default: INFO)',
                         choices=_LOG_LEVELS,
-                        default='NOTSET',
+                        default='INFO',
                         action='store',
                         type=lambda s: s.upper())
 
