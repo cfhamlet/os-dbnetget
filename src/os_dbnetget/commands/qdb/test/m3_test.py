@@ -1,10 +1,17 @@
+import logging
 from io import BytesIO
+
+from os_m3_engine.core.backend import Backend
+
+from os_dbnetget.commands.qdb.m3_runner import M3Runner
 from os_dbnetget.commands.qdb.test import Test as TestCommand
-from os_dbnetget.commands.qdb.default_runner import DefaultRunner
 
 
-class Runner(DefaultRunner):
-    def _process_result(self, data, proto):
+class StoreBackend(Backend):
+    _logger = logging.getLogger('StoreBackend')
+
+    def process(self, data):
+        data, proto = data
         status = 'N'
         if proto is None:
             status = 'E'
@@ -29,9 +36,10 @@ class Runner(DefaultRunner):
 
 
 class Test(TestCommand):
-    ENGINE_NAME = 'default'
+    ENGINE_NAME = 'm3'
 
     def __init__(self, config=None):
         super(Test, self).__init__(config)
         self.config.cmd = 'test'
-        self._runner = Runner(self.config)
+        self.config.backend_cls = StoreBackend
+        self._runner = M3Runner(self.config)

@@ -1,9 +1,10 @@
 from io import BytesIO
+
 from os_dbnetget.commands.qdb.test import Test as TestCommand
-from os_dbnetget.commands.qdb.default_runner import DefaultRunner
+from os_dbnetget.commands.qdb.tornado_runner import TornadoRunner
 
 
-class Runner(DefaultRunner):
+class Runner(TornadoRunner):
     def _process_result(self, data, proto):
         status = 'N'
         if proto is None:
@@ -29,7 +30,7 @@ class Runner(DefaultRunner):
 
 
 class Test(TestCommand):
-    ENGINE_NAME = 'default'
+    ENGINE_NAME = 'tornado'
 
     def __init__(self, config=None):
         super(Test, self).__init__(config)

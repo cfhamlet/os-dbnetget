@@ -1,5 +1,5 @@
-from os_dbnetget.commands.qdb.get import Get as GetCommand
 from os_dbnetget.commands.qdb.default_runner import DefaultRunner
+from os_dbnetget.commands.qdb.get import Get as GetCommand
 
 
 class Get(GetCommand):

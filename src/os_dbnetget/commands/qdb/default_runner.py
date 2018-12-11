@@ -59,25 +59,29 @@ class DefaultRunner(Command):
         for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGQUIT):
             signal.signal(sig, self._on_stop)
 
+    def _process_result(self, data, proto):
+        status = 'N'
+        if proto is None:
+            status = 'E'
+        if status != 'E':
+            if proto.value:
+                status = 'Y'
+                self.config.output.write(proto.value)
+        self._logger.info('%s\t%s' % (data, status))
+
     def _run(self, args):
-        output = self.config.output
         for line in chain.from_iterable(args.inputs):
             if self._stop:
                 break
             line = line.strip()
-            status = 'N'
             try:
                 d = docid(line)
             except NotImplementedError:
-                status = 'E'
-            if status != 'E':
-                proto = create_protocal(self.config.cmd, d.bytes[16:])
-                p = self._client.execute(proto)
-                status = 'N'
-                if p.value:
-                    status = 'Y'
-                    output.write(p.value)
-            self._logger.info('%s\t%s' % (line, status))
+                self._process_result(line, None)
+                continue
+            proto = create_protocal(self.config.cmd, d.bytes[16:])
+            p = self._client.execute(proto)
+            self._process_result(line, p)
 
     def run(self, args):
         self._register_signal()
