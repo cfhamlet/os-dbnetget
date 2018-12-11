@@ -22,7 +22,7 @@ class Get(QDB):
             elif args.output_type == 'rotate':
                 from os_rotatefile import open_file
                 output = open_file(args.output, 'w')
-        self.config.output = (output, )
+        self.config.output = output
 
     def add_arguments(self, parser):
         super(Get, self).add_arguments(parser)
@@ -41,3 +41,12 @@ class Get(QDB):
                                 )
         except:
             pass
+
+    def run(self, args):
+        try:
+            super(Get, self).run(args)
+        finally:
+            try:
+                self.config.output.close()
+            except:
+                pass
