@@ -20,9 +20,9 @@ class DefaultRunner(Command):
     def add_arguments(self, parser):
 
         parser.add_argument('--client-retry-max',
-                            help='client retry max (default: 1)',
+                            help='client retry max (default: 0)',
                             type=int,
-                            default=1,
+                            default=0,
                             dest='client_retry_max',
                             )
         parser.add_argument('--client-retry-interval',

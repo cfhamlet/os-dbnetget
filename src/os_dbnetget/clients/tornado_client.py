@@ -31,7 +31,7 @@ class TornadoClient(Client):
         self._retry_max = kwargs.get('retry_max', 3)
         assert self._retry_max >= 1
         self._retry_interval = kwargs.get('retry_interval', 5)
-        self._retry_count = 0
+        self._retry_count = -1
         self._stream = None
         self._closed = False
 
@@ -62,7 +62,7 @@ class TornadoClient(Client):
         if self._retry_count >= self._retry_max:
             raise RetryLimitExceeded('Exceed retry limit %d/%d' %
                                      (self._retry_count, self._retry_max))
-        self._retry_count = 0
+        self._retry_count = -1
 
     @gen.coroutine
     def _execute(self, qdb_proto):
