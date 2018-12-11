@@ -7,13 +7,12 @@ from os_dbnetget.exceptions import UsageError
 
 class QDB(Command):
 
-    def __init__(self, config):
+    def __init__(self, config=None):
         super(QDB, self).__init__(config)
         self._runner = None
 
-
     def add_arguments(self, parser):
-        super(QDB,self).add_arguments(parser)
+        super(QDB, self).add_arguments(parser)
         parser.add_argument('-i', '--inputs',
                             help='input files to be processed (default: stdin)',
                             nargs='+',
@@ -35,7 +34,7 @@ class QDB(Command):
                             type=argparse.FileType('rb'),
                             dest='endpoints_list',
                             )
-        self._runner.process_arguments(parser)
+        self._runner.add_arguments(parser)
 
     def process_arguments(self, args):
         super(QDB, self).process_arguments(args)
