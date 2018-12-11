@@ -1,4 +1,5 @@
-from os_config import Config
+from os_dbnetget.utils import Config
+
 
 class Command(object):
 
@@ -6,9 +7,9 @@ class Command(object):
     DESCRIPTION = ''
     ENGINE_NAME = None
 
-    def __init__(self ,config = None):
+    def __init__(self, config=None):
         if config is None:
-            config = Config.create()
+            config = Config()
         self.config = config
 
     def add_arguments(self, parser):
