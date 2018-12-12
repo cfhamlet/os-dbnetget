@@ -7,3 +7,4 @@ source = os_dbnetget
 source =
     src/os_dbnetget
     .tox/*/lib/python*/site-packages/os_dbnetget
+    .tox/*/site-packages/os_dbnetget
