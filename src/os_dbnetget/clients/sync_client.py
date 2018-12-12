@@ -29,7 +29,6 @@ class SyncClient(Client):
         super(SyncClient, self).__init__(address, port, **kwargs)
         self._timeout = kwargs.get('timeout', socket.getdefaulttimeout())
         self._retry_max = kwargs.get('retry_max', 3)
-        assert self._retry_max >= 1
         self._retry_interval = kwargs.get('retry_interval', 5)
         self._retry_count = -1 
         self._socket = None

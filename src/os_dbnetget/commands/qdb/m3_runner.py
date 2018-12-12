@@ -74,7 +74,7 @@ class M3Runner(DefaultRunner):
         engine_transport_config.thread_num = args.thread_num
         self._engine = create(frontend_cls=InputsFrontend,
                               transport_cls=QDBTransport,
-                              backend_cls=self.config.backend_cls,
+                              backend_cls=StoreBackend,
                               engine_transport_config=engine_transport_config,
                               app_config=self.config)
 

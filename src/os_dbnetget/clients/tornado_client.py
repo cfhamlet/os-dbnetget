@@ -29,7 +29,6 @@ class TornadoClient(Client):
         self._connect_timeout = kwargs.get('connect_timeout', self._timeout)
         self._recv_timeout = kwargs.get('recv_timeout', self._timeout)
         self._retry_max = kwargs.get('retry_max', 3)
-        assert self._retry_max >= 1
         self._retry_interval = kwargs.get('retry_interval', 5)
         self._retry_count = -1
         self._stream = None

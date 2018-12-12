@@ -8,7 +8,7 @@ class Test(QDB):
 
     def __init__(self, config=None):
         super(Test, self).__init__(config)
-        self.config.cmd = 'get'
+        self.config.cmd = 'test'
         self.config.processor = Processor(self.config)
 
     def description(self):

@@ -1,4 +1,3 @@
-import logging
 from io import BytesIO
 
 from os_dbnetget.commands.qdb.processor import Processor as BaseProcessor
