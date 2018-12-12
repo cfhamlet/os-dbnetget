@@ -3,13 +3,13 @@ sudo: false
 matrix:
   include:
   - python: 2.7
-    env: TOXENV=py27
+    env: TOXENV=py27,main,m3,tornado
   - python: 3.6
-    env: TOXENV=py36
+    env: TOXENV=py36,main,m3,tornado
   - python: pypy
-    env: TOXENV=pypy
+    env: TOXENV=pypy,main,m3,tornado
   - python: pypy3
-    env: TOXENV=pypy3
+    env: TOXENV=pypy3,main,m3,tornado
 install:
 - pip install -U pip tox codecov
 script:
