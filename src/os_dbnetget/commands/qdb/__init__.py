@@ -3,6 +3,11 @@ import argparse
 from os_dbnetget.commands import Command
 from os_dbnetget.utils import binary_stdin
 from os_dbnetget.exceptions import UsageError
+from os_docid import docid
+
+
+def qdb_key(url_or_docid):
+    return docid(url_or_docid).bytes[16:]
 
 
 class QDB(Command):

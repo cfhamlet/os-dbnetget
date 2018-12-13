@@ -2,11 +2,11 @@ import logging
 import signal
 from itertools import chain
 
-from os_docid import docid
 from os_qdb_protocal import create_protocal
 
 from os_dbnetget.clients.sync_client import SyncClientPool
 from os_dbnetget.commands import Command
+from os_dbnetget.commands.qdb import qdb_key
 
 
 class DefaultRunner(Command):
@@ -65,11 +65,11 @@ class DefaultRunner(Command):
                 break
             data = line.strip()
             try:
-                d = docid(data)
+                q_key = qdb_key(data)
             except NotImplementedError:
                 self.config.processor.process(data, None)
                 continue
-            proto = create_protocal(self.config.cmd, d.bytes[16:])
+            proto = create_protocal(self.config.cmd, q_key)
             p = self._client.execute(proto)
             self.config.processor.process(data, p)
 
