@@ -73,7 +73,7 @@ class SyncClient(Client):
             try:
                 return self._execute(qdb_proto)
             except (socket.timeout, socket.error) as e:
-                self._logger.warn('Network error {}:{} {}'.format(
+                self._logger.warning('Network error {}:{} {}'.format(
                     self._address, self._port, e))
                 self._reconnect()
 
@@ -193,7 +193,7 @@ class SyncClientPool(object):
                 except ResourceLimit:
                     continue
             except (RetryLimitExceeded, socket.error) as e:
-                self._logger.warn(
+                self._logger.warning(
                     'Not available, {} {}'.format(client.endpoint, e))
                 self._release_client(client)
             except Exception as e:

@@ -23,10 +23,15 @@ class TornadoClient(Client):
     def __init__(self, address, port, **kwargs):
         super(TornadoClient, self).__init__(address, port, **kwargs)
         self._timeout = kwargs.get('timeout', socket.getdefaulttimeout())
+        assert self._timeout > 0, 'timeout must be negative'
         self._connect_timeout = kwargs.get('connect_timeout', self._timeout)
+        assert self._connect_timeout > 0, 'connect_timeout must be negative'
         self._recv_timeout = kwargs.get('recv_timeout', self._timeout)
+        assert self._recv_timeout > 0, 'recv_timeout must be negative'
         self._retry_max = kwargs.get('retry_max', 3)
+        assert 0 <= self._retry_max <= 120, 'retry_max must be [0, 120]'
         self._retry_interval = kwargs.get('retry_interval', 5)
+        assert self._retry_interval >= 0, 'retry_interval must be non-negative'
         self._retry_count = -1
         self._stream = None
         self._closed = False
@@ -94,7 +99,7 @@ class TornadoClient(Client):
                 r = yield self._execute(qdb_proto)
                 raise gen.Return(r)
             except (TimeoutError, StreamClosedError) as e:
-                self._logger.warn('Network error {}:{} {}'.format(
+                self._logger.warning('Network error {}:{} {}'.format(
                     self._address, self._port, e))
                 yield self._reconnect()
 
@@ -197,7 +202,7 @@ class TornadoClientPool(object):
                 yield self._clients.put(client)
             except (RetryLimitExceeded, StreamClosedError,
                     TimeoutError, socket.gaierror) as e:
-                self._logger.warn(
+                self._logger.warning(
                     'Not available, {} {}'.format(client.endpoint, e))
                 self._release_client(client)
                 continue
