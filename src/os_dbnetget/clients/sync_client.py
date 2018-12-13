@@ -55,9 +55,8 @@ class SyncClient(Client):
 
         self.__ensure_not_closed()
         if self._retry_count >= self._retry_max:
-            raise RetryLimitExceeded('Exceed retry limit {}/{} {}:{}'.format
-                                     (self._retry_count, self._retry_max,
-                                      self._address, self._port))
+            raise RetryLimitExceeded(
+                'Exceed retry limit {}/{}'.format(self._retry_count, self._retry_max))
         self._retry_count = -1
 
     def __ensure_not_closed(self):
@@ -145,7 +144,7 @@ class SyncClientPool(object):
                     self._candidates.pop(endpoint)
                 self._clients.put(client)
                 self._clients_count += 1
-                self._logger.debug('Create a new client, %s' % endpoint)
+                self._logger.debug('Create a new client {}'.format(endpoint))
                 return
 
             raise ResourceLimit('No more available endpoint')
@@ -191,12 +190,12 @@ class SyncClientPool(object):
                 except ResourceLimit:
                     continue
             except (RetryLimitExceeded, socket.error) as e:
-                self._logger.error('Not available, {}'.format(e))
+                self._logger.warn(
+                    'Not available, {} {}'.format(client.endpoint, e))
                 self._release_client(client)
-            except ResourceLimit:
-                self._logger.error('{}'.format(e))
             except Exception as e:
-                self._logger.error('Unexpected error, {}'.format(e))
+                self._logger.error(
+                    'Unexpected error, {} {}'.format(client.endpoint, e))
                 self._release_client(client)
 
     def _release_client(self, client):

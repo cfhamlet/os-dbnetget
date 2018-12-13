@@ -78,6 +78,6 @@ class DefaultRunner(Command):
         try:
             self._run(args)
         except Exception as e:
-            self._logger.error('Error %s' % str(e))
+            self._logger.error('Error {}'.format(e))
         finally:
             self._close()

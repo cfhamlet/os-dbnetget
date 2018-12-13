@@ -58,9 +58,13 @@ class TornadoRunner(DefaultRunner):
 
     @gen.coroutine
     def _run(self, args):
-        IOLoop.current().spawn_callback(self._loop_read)
-        yield gen.multi([self._loop_process(args) for _ in range(0, self.config.concurrency)])
-        yield self._close()
+        try:
+            IOLoop.current().spawn_callback(self._loop_read)
+            yield gen.multi([self._loop_process(args) for _ in range(0, self.config.concurrency)])
+        except Exception as e:
+            self._logger.error('Error {}'.format(e))
+        finally:
+            yield self._close()
 
     @gen.coroutine
     def _loop_process(self, args):
