@@ -7,21 +7,12 @@ import threading
 import time
 from io import BytesIO
 
-from ..exceptions import (ResourceLimit, RetryLimitExceeded, ServerClosed,
-                          Unavailable)
-from ..utils import split_endpoint
-from .client import RETRY_NETWORK_ERRNO, Client
-
-_PY3 = sys.version_info[0] == 3
-
-if _PY3:
-    import queue as Queue
-else:
-    import Queue
+from os_dbnetget.clients.client import RETRY_NETWORK_ERRNO, Client
+from os_dbnetget.exceptions import (ResourceLimit, RetryLimitExceeded,
+                                    ServerClosed, Unavailable)
+from os_dbnetget.utils import Queue, split_endpoint
 
 socket.setdefaulttimeout(10)
-
-_logger = logging.getLogger(__name__)
 
 
 class SyncClient(Client):
@@ -30,7 +21,8 @@ class SyncClient(Client):
         self._timeout = kwargs.get('timeout', socket.getdefaulttimeout())
         self._retry_max = kwargs.get('retry_max', 3)
         self._retry_interval = kwargs.get('retry_interval', 5)
-        self._retry_count = -1 
+        self._logger = logging.getLogger(self.__class__.__name__)
+        self._retry_count = -1
         self._socket = None
         self._closed = False
 
@@ -43,21 +35,29 @@ class SyncClient(Client):
                     (self._address, self._port), timeout=self._timeout)
                 break
             except socket.error as e:
+                raise_e = False
+                if self._retry_max <= 0:
+                    raise_e = True
                 if not isinstance(e, socket.timeout):
                     if e.args[0] not in RETRY_NETWORK_ERRNO:
-                        raise e
+                        raise_e = True
 
-                _logger.warn('Connect error: %s, retry in %ds, retry count %d' %
-                             (str(e), self._retry_interval, self._retry_count))
-
+                self._logger.debug('Connect error {}:{}, {}'.format(
+                    self._address, self._port, e))
+                if raise_e:
+                    raise e
                 self._retry_count += 1
                 if self._retry_count < self._retry_max:
+                    self._logger.debug('Connect retry {}:{} in {}s, {}/{}'.format(
+                        self._address, self._port, self._retry_interval,
+                        self._retry_count + 1, self._retry_max))
                     time.sleep(self._retry_interval)
 
         self.__ensure_not_closed()
         if self._retry_count >= self._retry_max:
-            raise RetryLimitExceeded('Exceed retry limit %d/%d' %
-                                     (self._retry_count, self._retry_max))
+            raise RetryLimitExceeded('Exceed retry limit {}/{} {}:{}'.format
+                                     (self._retry_count, self._retry_max,
+                                      self._address, self._port))
         self._retry_count = -1
 
     def __ensure_not_closed(self):
@@ -71,7 +71,8 @@ class SyncClient(Client):
             try:
                 return self._execute(qdb_proto)
             except (socket.timeout, socket.error) as e:
-                _logger.warn('Network error: %s' % str(e))
+                self._logger.warn('Network error {}:{} {}'.format(
+                    self._address, self._port, e))
                 self._reconnect()
 
     def _execute(self, qdb_proto):
@@ -122,6 +123,7 @@ class SyncClientPool(object):
         self._closing = False
         self._closed = False
         self._started = False
+        self._logger = logging.getLogger(self.__class__.__name__)
 
     def _create_client(self):
         with self._create_lock:
@@ -143,7 +145,7 @@ class SyncClientPool(object):
                     self._candidates.pop(endpoint)
                 self._clients.put(client)
                 self._clients_count += 1
-                _logger.debug('Create a new client, %s' % endpoint)
+                self._logger.debug('Create a new client, %s' % endpoint)
                 return
 
             raise ResourceLimit('No more available endpoint')
@@ -188,9 +190,13 @@ class SyncClientPool(object):
                     self._create_client()
                 except ResourceLimit:
                     continue
-
+            except (RetryLimitExceeded, socket.error) as e:
+                self._logger.error('Not available, {}'.format(e))
+                self._release_client(client)
+            except ResourceLimit:
+                self._logger.error('{}'.format(e))
             except Exception as e:
-                _logger.error('Unexpected error, %s' % str(e))
+                self._logger.error('Unexpected error, {}'.format(e))
                 self._release_client(client)
 
     def _release_client(self, client):
