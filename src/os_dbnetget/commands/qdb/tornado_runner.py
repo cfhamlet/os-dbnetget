@@ -2,14 +2,14 @@ from datetime import timedelta
 from functools import partial
 from itertools import chain
 
-from os_docid import docid
 from os_qdb_protocal import create_protocal
+from tornado import gen, queues
+from tornado.ioloop import IOLoop
+from tornado.util import TimeoutError
 
 from os_dbnetget.clients.tornado_client import TornadoClientPool
+from os_dbnetget.commands.qdb import qdb_key
 from os_dbnetget.commands.qdb.default_runner import DefaultRunner
-from tornado import gen, queues
-from tornado.ioloop import IOLoop 
-from tornado.util import TimeoutError
 
 
 class TornadoRunner(DefaultRunner):
@@ -47,21 +47,24 @@ class TornadoRunner(DefaultRunner):
     @gen.coroutine
     def _process(self, data):
         try:
-            d = docid(data)
+            q_key = qdb_key(data)
         except NotImplementedError:
             self.config.processor.process(data, None)
             return
 
-        proto = create_protocal(self.config.cmd, d.bytes[16:])
+        proto = create_protocal(self.config.cmd, q_key)
         p = yield self._client.execute(proto)
         self.config.processor.process(data, p)
 
-
     @gen.coroutine
     def _run(self, args):
-        IOLoop.current().spawn_callback(self._loop_read)
-        yield gen.multi([self._loop_process(args) for _ in range(0, self.config.concurrency)])
-        yield self._close()
+        try:
+            IOLoop.current().spawn_callback(self._loop_read)
+            yield gen.multi([self._loop_process(args) for _ in range(0, self.config.concurrency)])
+        except Exception as e:
+            self._logger.error('Error {}'.format(e))
+        finally:
+            yield self._close()
 
     @gen.coroutine
     def _loop_process(self, args):
