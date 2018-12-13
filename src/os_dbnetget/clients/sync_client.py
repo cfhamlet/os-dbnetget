@@ -19,8 +19,11 @@ class SyncClient(Client):
     def __init__(self, address, port, **kwargs):
         super(SyncClient, self).__init__(address, port, **kwargs)
         self._timeout = kwargs.get('timeout', socket.getdefaulttimeout())
+        assert self._timeout > 0, 'timeout must be negative'
         self._retry_max = kwargs.get('retry_max', 3)
+        assert 0 <= self._retry_max <= 120, 'retry_max must be [0, 120]'
         self._retry_interval = kwargs.get('retry_interval', 5)
+        assert self._retry_interval >= 0, 'retry_interval must be non-negative'
         self._logger = logging.getLogger(self.__class__.__name__)
         self._retry_count = -1
         self._socket = None
