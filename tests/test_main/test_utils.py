@@ -27,14 +27,16 @@ def test_walk_modules():
 
 def test_iter_classes():
     from tests.test_main.for_test_module_utils.test_mod1.class_b import BaseClass
-    classes = [c for c in utils.iter_classes('tests.test_main.for_test_module_utils', BaseClass)]
+    classes = [c for c in utils.iter_classes(
+        'tests.test_main.for_test_module_utils', BaseClass)]
     expected = [
         'ClassB',
     ]
     assert set([c.__name__ for c in classes]) == set(expected)
 
     from tests.test_main.for_test_module_utils.test_mod1.class_a import ClassA
-    classes = [c for c in utils.iter_classes('tests.test_main.for_test_module_utils', (ClassA, BaseClass))]
+    classes = [c for c in utils.iter_classes(
+        'tests.test_main.for_test_module_utils', (ClassA, BaseClass))]
     expected = [
         'ClassB',
         'ClassAA',
