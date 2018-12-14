@@ -1,6 +1,6 @@
 import inspect
 import sys
-from argparse import ArgumentError, ArgumentParser, ArgumentTypeError
+from argparse import ArgumentError, ArgumentParser
 from importlib import import_module
 from pkgutil import iter_modules
 
@@ -79,13 +79,13 @@ class CustomArgumentParser(ArgumentParser):
 def check_positive(value_type, value):
     ivalue = value_type(value)
     if ivalue <= 0:
-        raise ArgumentTypeError('{} is not positive'.format(value))
+        raise ValueError('{} is not positive'.format(value))
     return ivalue
 
 
 def check_range(value_type, start, end, value):
     ivalue = value_type(value)
     if ivalue < start or ivalue > end:
-        raise ArgumentTypeError(
+        raise ValueError(
             '{} is not in range [{}, {}]'.format(value, start, end))
     return ivalue

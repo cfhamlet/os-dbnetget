@@ -1,3 +1,5 @@
+import inspect
+
 import pytest
 from os_dbnetget import utils
 
@@ -42,3 +44,44 @@ def test_iter_classes():
         'ClassAA',
     ]
     assert set([c.__name__ for c in classes]) == set(expected)
+
+
+def test_check_positive():
+
+    data = [
+        (1, int, 1),
+        ('1', int, 1),
+        (0, int, ValueError),
+        ('0', int, ValueError),
+        (-1, int, ValueError),
+        ('-1', int, ValueError),
+        ('1.1', int, ValueError),
+    ]
+    for input, input_type, expected in data:
+        if inspect.isclass(expected) and issubclass(expected, Exception):
+            with pytest.raises(expected):
+                utils.check_positive(input_type, input)
+        else:
+            assert expected == utils.check_positive(input_type, input)
+
+
+def test_check_range():
+    data = [
+        (1, int, (0, 10), 1),
+        ('1', int, (0, 10), 1),
+        (11, int, (0, 10), ValueError),
+        ('11', int, (0, 10), ValueError),
+        (-1, int, (0, 10), ValueError),
+        ('-1', int, (0, 10), ValueError),
+        (1.1, float, (0, 10), 1.1),
+        ('1.1', float, (0, 10), 1.1),
+        ('1.1', int, (0, 10), ValueError),
+    ]
+    for input, input_type, valid_range, expected in data:
+        if inspect.isclass(expected) and issubclass(expected, Exception):
+            with pytest.raises(expected):
+                utils.check_range(
+                    input_type, valid_range[0], valid_range[1], input)
+        else:
+            assert expected == utils.check_range(
+                input_type, valid_range[0], valid_range[1], input)
