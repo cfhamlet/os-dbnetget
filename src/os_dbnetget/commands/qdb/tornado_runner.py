@@ -70,7 +70,7 @@ class TornadoRunner(DefaultRunner):
     @gen.coroutine
     def _loop_process(self, args):
         while True:
-            if self._stop and self._queue.qsize <= 0:
+            if self._stop and self._queue.qsize() <= 0:
                 break
             try:
                 data = yield self._queue.get(timeout=timedelta(seconds=0.1))

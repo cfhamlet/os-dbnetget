@@ -9,6 +9,10 @@ def test_split_endpoint():
     s, p = utils.split_endpoint(endpoint)
     assert s == 'test01'
     assert p == 8080
+    endpoint = b'test01:8080'
+    s, p = utils.split_endpoint(endpoint)
+    assert s == b'test01'
+    assert p == 8080
 
 
 def test_walk_modules():
