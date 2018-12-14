@@ -13,8 +13,7 @@ from logging.config import dictConfig
 import os_dbnetget
 from os_dbnetget.commands import Command
 from os_dbnetget.exceptions import UsageError
-from os_dbnetget.utils import iter_classes
-from utils import CustomArgumentParser
+from os_dbnetget.utils import iter_classes, CustomArgumentParser
 
 _LOG_LEVELS = ['NOTSET', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL']
 
@@ -132,7 +131,7 @@ def _add_global_argument(parser):
                         version='%(prog)s {version}'.format(version=os_dbnetget.__version__))
     parser.add_argument('-l', '--log-level',
                         dest='log_level',
-                        help= 'log level (default: INFO)',
+                        help='log level (default: INFO)',
                         choices=_LOG_LEVELS,
                         default='INFO',
                         action='store',

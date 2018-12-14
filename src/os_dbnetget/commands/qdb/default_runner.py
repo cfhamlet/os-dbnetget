@@ -1,5 +1,6 @@
 import logging
 import signal
+from functools import partial
 from itertools import chain
 
 from os_qdb_protocal import create_protocal
@@ -7,6 +8,7 @@ from os_qdb_protocal import create_protocal
 from os_dbnetget.clients.sync_client import SyncClientPool
 from os_dbnetget.commands import Command
 from os_dbnetget.commands.qdb import qdb_key
+from os_dbnetget.utils import check_range
 
 
 class DefaultRunner(Command):
@@ -20,20 +22,20 @@ class DefaultRunner(Command):
     def add_arguments(self, parser):
 
         parser.add_argument('--client-retry-max',
-                            help='client retry max (default: 0)',
-                            type=int,
+                            help='client retry max (0-10, default: 0)',
+                            type=partial(check_range, int, 0, 10),
                             default=0,
                             dest='client_retry_max',
                             )
         parser.add_argument('--client-retry-interval',
-                            help='client retry interval (default: 5)',
-                            type=int,
+                            help='client retry interval seconds (0-60 default: 5)',
+                            type=partial(check_range, float, 0, 60),
                             default=5,
                             dest='client_retry_interval',
                             )
         parser.add_argument('--client-timeout',
-                            help='client timeout(default: 10)',
-                            type=int,
+                            help='client timeout seconds (1-60 default: 10)',
+                            type=partial(check_range, float, 1, 60),
                             default=10,
                             dest='client_timeout',
                             )

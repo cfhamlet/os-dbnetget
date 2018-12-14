@@ -34,7 +34,7 @@ class QDB(Command):
 
         parser.add_argument('-L', '--endpoints-list-file',
                             help='qdb endpoints(host:ip) list file, one endpoint per line, \
-                            can be override by \'-E\' argument',
+                            can be overridden by \'-E\' argument',
                             nargs='?',
                             type=argparse.FileType('rb'),
                             dest='endpoints_list',
