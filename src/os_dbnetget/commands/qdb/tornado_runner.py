@@ -10,6 +10,7 @@ from tornado.util import TimeoutError
 from os_dbnetget.clients.tornado_client import TornadoClientPool
 from os_dbnetget.commands.qdb import qdb_key
 from os_dbnetget.commands.qdb.default_runner import DefaultRunner
+from os_dbnetget.utils import check_range
 
 
 class TornadoRunner(DefaultRunner):
@@ -20,8 +21,8 @@ class TornadoRunner(DefaultRunner):
     def add_arguments(self, parser):
         super(TornadoRunner, self).add_arguments(parser)
         parser.add_argument('--concurrency',
-                            help='concurrency (default: 10)',
-                            type=int,
+                            help='concurrency (1-100 default: 10)',
+                            type=partial(check_range, int, 1, 100),
                             default=10,
                             dest='concurrency',
                             )

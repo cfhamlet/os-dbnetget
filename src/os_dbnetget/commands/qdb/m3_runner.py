@@ -1,4 +1,5 @@
 import logging
+from functools import partial
 from itertools import chain
 
 from os_m3_engine.core.backend import Backend
@@ -10,7 +11,7 @@ from os_qdb_protocal import create_protocal
 from os_dbnetget.clients.sync_client import SyncClientPool
 from os_dbnetget.commands.qdb import qdb_key
 from os_dbnetget.commands.qdb.default_runner import DefaultRunner
-from os_dbnetget.utils import Config
+from os_dbnetget.utils import Config, check_range
 
 
 class InputsFrontend(Frontend):
@@ -61,8 +62,8 @@ class M3Runner(DefaultRunner):
     def add_arguments(self, parser):
         super(M3Runner, self).add_arguments(parser)
         parser.add_argument('--thread-num',
-                            help='thread num (default: 10)',
-                            type=int,
+                            help='thread num (1-100 default: 10)',
+                            type=partial(check_range, int, 1, 100),
                             default=10,
                             dest='thread_num',
                             )
