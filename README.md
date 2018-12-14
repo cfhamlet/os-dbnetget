@@ -7,7 +7,7 @@
 
 Library and command line tool not just for qdb.
 
-This project implement a python qdb toolkit as dbnetget at first. With the progress of development, it is separated into multiple sub-projects as [os-qdb-protocal](https://github.com/cfhamlet/os-qdb-protocal), [os-m3-engine](https://github.com/cfhamlet/os-m3-engine), this project become a framework for similar work not just for qdb.
+This project implement a python qdb toolkit as dbnetget at first. With the progress of development, it is separated into multiple sub-projects as [os-qdb-protocal](https://github.com/cfhamlet/os-qdb-protocal), [os-m3-engine](https://github.com/cfhamlet/os-m3-engine), this project become a framework for similar works not just for qdb.
 
 The main components are client libraries and command line tool.
 
@@ -23,7 +23,9 @@ Greatly appreciate [**Bear Tian**](http://i.youku.com/i/UMTk2ODI0MjI0) and his d
 # Install
 
 * install package
-  `pip install os-dbnetget`
+  ```
+  pip install os-dbnetget
+  ```
 
 * install extra packages
 
@@ -42,8 +44,8 @@ There are sync/async clients, generally speaking, you should not use them direct
 
 * native multi-thread, do not need extra packages
 * thread safe
-* retry, when network error
-* support multi connection with one endpoint
+* retry when network error
+* support multi connections with one endpoint
 
 
 
@@ -51,12 +53,13 @@ Example:
 
 ```python
 from os_qdb_protocal import create_protocal
+from os_dbnetget.commands.qdb import qdb_key
 from os_dbnetget.clients.sync_client import SyncClientPool
 
 endpoints = ['host%02d:8012' % i for i in range(1, 10)]
 pool = SyncClientPool(endpoints)
 
-proto = create_protocal('test', b'test-key')
+proto = create_protocal('test', qdb_key(b'test-key'))
 result = pool.execute(proto)
 
 pool.close()
@@ -69,8 +72,8 @@ pool.close()
 ## TornadoClientPool
 
 * support tornado async
-* retry, when network error
-* support multi connection with one endpoint
+* retry when network error
+* support multi connections with one endpoint
 
 
 
@@ -81,6 +84,7 @@ from tornado import gen
 from tornado.ioLoop import IOLoop
 
 from os_qdb_protocal import create_protocal
+from os_dbnetget.commands.qdb import qdb_key
 from os_dbnetget.clients.tonado_client import TornadoClientPool
 
 @gen.coroutine
@@ -89,7 +93,7 @@ def main():
     endpoints = ['host%02d:8012' % i for i in range(1, 10)]
     pool = TornadoClientPool(endpoints)
 
-    proto = create_protocal('test', b'test-key')
+    proto = create_protocal('test', qdb_key(b'test-key'))
     result = yield pool.execute(proto)
 
     yield pool.close()
@@ -103,7 +107,7 @@ IOLoop.current().run_sync(main)
 
 # Command line
 
-* command line tool is on progress,  the support sub-commands:
+* command line tool is on progress, the supported sub-commands:
 
   ```
   os-dbnetget -h
@@ -124,7 +128,7 @@ IOLoop.current().run_sync(main)
   ```
 
   ```
-  cat data.txt | os-dbnetget test --engine m3 --thread-num 100 -L endpoints.lst
+  cat data.txt | os-dbnetget test --engine m3 --thread-num 50 -L endpoints.lst
   ```
 
 
