@@ -65,7 +65,7 @@ def iter_classes(module_path, base_class, include_base_class=False, skip_fail=Tr
 
 
 def split_endpoint(endpint):
-    address, port = endpint.split(b':')
+    address, port = endpint.split(':')
     port = int(port)
     return address, port
 
