@@ -12,4 +12,5 @@ class Processor(BaseProcessor):
             if proto.value:
                 status = 'Y'
                 self.config.output.write(proto.value)
+                self.config.output.write(b'\n')
         self._logger.info('%s\t%s' % (data, status))

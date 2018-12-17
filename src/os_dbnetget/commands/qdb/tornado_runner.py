@@ -21,8 +21,8 @@ class TornadoRunner(DefaultRunner):
     def add_arguments(self, parser):
         super(TornadoRunner, self).add_arguments(parser)
         parser.add_argument('--concurrency',
-                            help='concurrency (1-100 default: 10)',
-                            type=partial(check_range, int, 1, 100),
+                            help='concurrency (1-200 default: 10)',
+                            type=partial(check_range, int, 1, 200),
                             default=10,
                             dest='concurrency',
                             )
@@ -70,7 +70,7 @@ class TornadoRunner(DefaultRunner):
     @gen.coroutine
     def _loop_process(self, args):
         while True:
-            if self._stop and self._queue.qsize <= 0:
+            if self._stop and self._queue.qsize() <= 0:
                 break
             try:
                 data = yield self._queue.get(timeout=timedelta(seconds=0.1))
