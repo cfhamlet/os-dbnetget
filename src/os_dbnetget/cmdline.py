@@ -3,7 +3,6 @@ Command line
 """
 from __future__ import print_function
 
-import inspect
 import logging
 import sys
 import warnings
