@@ -32,7 +32,7 @@ setup(
         'console_scripts': ['os-dbnetget = os_dbnetget.cmdline:execute']
     },
     extras_require={
-        'tornado': ['tornado'],
+        'tornado': ['tornado>5.1'],
         'm3': ['os-m3-engine'],
         'rotate': ['os-rotatefile'],
     },
