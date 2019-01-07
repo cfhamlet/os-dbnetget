@@ -26,12 +26,13 @@ setup(
     author_email='cfhamlet@gmail.com',
     url='https://github.com/cfhamlet/os-dbnetget',
     install_requires=open('requirements.txt').read().split('\n'),
+    python_requires='>=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*',
     zip_safe=False,
     entry_points={
         'console_scripts': ['os-dbnetget = os_dbnetget.cmdline:execute']
     },
     extras_require={
-        'tornado': ['tornado'],
+        'tornado': ['tornado>5.1'],
         'm3': ['os-m3-engine'],
         'rotate': ['os-rotatefile'],
     },
