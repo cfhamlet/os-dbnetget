@@ -25,13 +25,14 @@ class SyncClient(Client):
         self._retry_interval = kwargs.get('retry_interval', 5)
         assert self._retry_interval >= 0, 'retry_interval must be non-negative'
         self._logger = logging.getLogger(self.__class__.__name__)
+        self._need_reconnect = True
         self._retry_count = -1
         self._socket = None
         self._closed = False
 
     def _reconnect(self):
         while self._retry_count < self._retry_max:
-            self.__ensure_not_closed()
+            self.__ensure_need_reconnect()
             self.__close_socket()
             try:
                 self._socket = socket.create_connection(
@@ -61,10 +62,16 @@ class SyncClient(Client):
             raise RetryLimitExceeded(
                 'Exceed retry limit {}/{}'.format(self._retry_count, self._retry_max))
         self._retry_count = -1
+        self._need_reconnect = True
 
     def __ensure_not_closed(self):
         if self._closed:
             raise Unavailable('Client already closed')
+
+    def __ensure_need_reconnect(self):
+        self.__ensure_not_closed()
+        if not self._need_reconnect:
+            raise Unavailable('Give up reconnect')
 
     def execute(self, qdb_proto):
         if self._socket is None:
@@ -76,6 +83,7 @@ class SyncClient(Client):
                 self._logger.warning('Network error {}:{} {}'.format(
                     self._address, self._port, e))
                 self._reconnect()
+                self._need_reconnect = False
 
     def _execute(self, qdb_proto):
         self.__ensure_not_closed()

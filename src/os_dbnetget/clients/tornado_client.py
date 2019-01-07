@@ -33,6 +33,7 @@ class TornadoClient(Client):
         self._retry_interval = kwargs.get('retry_interval', 5)
         assert self._retry_interval >= 0, 'retry_interval must be non-negative'
         self._retry_count = -1
+        self._need_reconnect = True
         self._stream = None
         self._closed = False
         self._logger = logging.getLogger(self.__class__.__name__)
@@ -40,6 +41,7 @@ class TornadoClient(Client):
     @gen.coroutine
     def _reconnect(self):
         while self._retry_count < self._retry_max:
+            self.__ensure_not_closed()
             self.__close_stream()
             try:
                 self._stream = yield TCPClient().connect(self._address, self._port,
@@ -102,10 +104,17 @@ class TornadoClient(Client):
                 self._logger.warning('Network error {}:{} {}'.format(
                     self._address, self._port, e))
                 yield self._reconnect()
+                self._need_reconnect = False
 
     def __ensure_not_closed(self):
         if self._closed:
             raise Unavailable('Client already closed')
+
+    def __ensure_need_reconnect(self):
+        self.__ensure_not_closed()
+        if not self._need_reconnect:
+            raise Unavailable('Give up reconnect')
+
 
     def __close_stream(self):
         if self._stream is not None:
